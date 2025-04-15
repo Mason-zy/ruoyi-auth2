@@ -53,6 +53,14 @@
           <router-link class="link-type" :to="'/register'">立即注册</router-link>
         </div>
       </el-form-item>
+      
+      <!-- 第三方登录 -->
+      <el-divider>
+        <span class="login-tip">第三方登录</span>
+      </el-divider>
+      <div class="third-login">
+        <el-button type="primary" @click="handleBladeXLogin">BladeX登录</el-button>
+      </div>
     </el-form>
     <!--  底部  -->
     <div class="el-login-footer">
@@ -151,6 +159,17 @@ export default {
           });
         }
       });
+    },
+    handleBladeXLogin() {
+      // 构建BladeX授权请求URL
+      const authUrl = `${process.env.VUE_APP_BLADE_AUTH_SERVER}/oauth/authorize?` +
+        `response_type=code&` +
+        `redirect_uri=${encodeURIComponent(process.env.VUE_APP_BLADE_CALLBACK_URL)}&` +
+        `state=${process.env.VUE_APP_BLADE_TENANT_ID}&` + // 租户ID
+        `client_id=${process.env.VUE_APP_BLADE_CLIENT_ID}`;
+      
+      // 跳转到授权页面
+      window.location.href = authUrl;
     }
   }
 };
@@ -216,5 +235,12 @@ export default {
 }
 .login-code-img {
   height: 38px;
+}
+// 添加第三方登录样式
+.third-login {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
+  margin-bottom: 15px;
 }
 </style>
