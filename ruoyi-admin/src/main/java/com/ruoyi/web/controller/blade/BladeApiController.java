@@ -5,6 +5,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ruoyi.common.annotation.Log;
@@ -16,6 +17,8 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.framework.web.service.BladeApiClient;
 import com.ruoyi.framework.web.service.BladeTokenManager;
+
+import java.util.Map;
 
 /**
  * BladeX API控制器
@@ -84,5 +87,37 @@ public class BladeApiController extends BaseController
         bladeTokenManager.removeToken(loginUser.getUserId());
         
         return AjaxResult.success("已清除BladeX令牌");
+    }
+
+    /**
+     * 获取BladeX系统用户列表（用于同步）
+     */
+    @GetMapping("/getUserList")
+    @PreAuthorize("@ss.hasPermi('system:user:list')")
+    @Log(title = "获取BladeX用户列表", businessType = BusinessType.OTHER)
+    public AjaxResult getUserList(
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "size", defaultValue = "10") Integer size,
+            @RequestParam(value = "account", required = false) String account,
+            @RequestParam(value = "realName", required = false) String realName,
+            @RequestParam(value = "deptId", required = false) String deptId)
+    {
+        try
+        {
+            LoginUser loginUser = SecurityUtils.getLoginUser();
+            if (loginUser == null)
+            {
+                return AjaxResult.error("用户未登录");
+            }
+            
+            Map<String, Object> result = bladeApiClient.getUserList(
+                loginUser.getUserId(), current, size, account, realName, deptId);
+            
+            return AjaxResult.success(result);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
     }
 } 
