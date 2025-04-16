@@ -90,7 +90,6 @@
         <el-table-column prop="account" label="账号" width="120" />
         <el-table-column prop="realName" label="姓名" width="120" />
         <el-table-column prop="deptName" label="部门" width="150" />
-        <el-table-column prop="roleName" label="角色" width="150" />
         <el-table-column prop="email" label="邮箱" width="180" />
         <el-table-column prop="phone" label="手机号" width="120" />
         <el-table-column prop="createTime" label="创建时间" width="160" />
