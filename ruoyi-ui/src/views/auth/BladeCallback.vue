@@ -84,7 +84,27 @@ export default {
         this.progress = 100;
         
         if (response.code === 200) {
-          // 成功获取令牌信息
+          // 添加调试语句，查看返回的数据结构
+          console.log('响应数据结构检查:', {
+            responseData: response.data,
+            hasToken: response.data && response.data.token,
+            token: response.data ? response.data.token : 'undefined'
+          });
+          
+          // 检查是否包含若依系统token
+          if (response.data && response.data.token) {
+            // 使用若依token直接登录
+            this.handleLoginSuccess(response.data.token);
+            return;
+          }
+          
+          // 如果响应中直接包含token（而不是在data.token中）
+          if (response.token) {
+            this.handleLoginSuccess(response.token);
+            return;
+          }
+          
+          // 获取token信息
           const tokenInfo = response.data;
           
           // 显示获取到的信息
@@ -102,60 +122,47 @@ export default {
     showTokenInfo(tokenInfo) {
       // 构建HTML内容
       let htmlContent = `
-        <h3>成功获取授权信息</h3>
-        <p><strong>授权码:</strong> ${this.code}</p>
-        <p><strong>租户ID:</strong> ${this.tenantId || '未指定'}</p>
+        <h3>BladeX认证结果</h3>
       `;
       
-      // 添加令牌信息
-      if (tokenInfo.access_token) {
-        htmlContent += `<p><strong>访问令牌:</strong> ${tokenInfo.access_token}</p>`;
+      if (tokenInfo.msg) {
+        // 显示错误信息
+        htmlContent += `<p class="error-msg">${tokenInfo.msg}</p>`;
+      } else {
+        // 添加令牌信息
+        if (tokenInfo.access_token) {
+          htmlContent += `<p><strong>访问令牌:</strong> ${tokenInfo.access_token.substring(0, 20)}...</p>`;
+        }
+        
+        // 添加用户信息(如果有)
+        if (tokenInfo.user_name) {
+          htmlContent += `<p><strong>用户名:</strong> ${tokenInfo.user_name}</p>`;
+        }
+        
+        if (tokenInfo.account) {
+          htmlContent += `<p><strong>账号:</strong> ${tokenInfo.account}</p>`;
+        }
+        
+        htmlContent += `
+          <h4>说明:</h4>
+          <p>BladeX认证成功，但未找到对应的若依系统用户。</p>
+          <p>请联系管理员为您创建对应的系统账号。</p>
+        `;
       }
-      if (tokenInfo.token_type) {
-        htmlContent += `<p><strong>令牌类型:</strong> ${tokenInfo.token_type}</p>`;
-      }
-      if (tokenInfo.expires_in) {
-        htmlContent += `<p><strong>有效期:</strong> ${tokenInfo.expires_in}秒</p>`;
-      }
-      if (tokenInfo.refresh_token) {
-        htmlContent += `<p><strong>刷新令牌:</strong> ${tokenInfo.refresh_token}</p>`;
-      }
-      
-      // 添加用户信息(如果有)
-      if (tokenInfo.user_name) {
-        htmlContent += `<p><strong>用户名:</strong> ${tokenInfo.user_name}</p>`;
-      }
-      
-      htmlContent += `
-        <h4>说明:</h4>
-        <p>已从BladeX获取访问令牌，您可以使用此令牌访问受保护的资源。</p>
-      `;
       
       // 弹窗显示获取到的信息
-      this.$alert(htmlContent, 'BladeX认证结果', {
+      this.$alert(htmlContent, '认证结果', {
         dangerouslyUseHTMLString: true,
-        confirmButtonText: '确定',
+        confirmButtonText: '返回登录',
         callback: action => {
-          // 判断token信息中是否有若依系统的token
-          if (tokenInfo.ruoyi_token) {
-            // 有若依token，直接使用
-            this.handleLoginSuccess(tokenInfo.ruoyi_token);
-          } else {
-            // 无若依token，使用BladeX token
-            // 实际项目中，这里可能需要调用另一个接口来获取若依系统的token
-            // 或者直接跳转到指定页面
-            this.$message({
-              type: 'warning',
-              message: '获取到BladeX令牌，但未获取到若依系统令牌，请联系管理员'
-            });
-            this.$router.push('/login');
-          }
+          this.$router.push('/login');
         }
       });
     },
     
     // 处理登录成功
     handleLoginSuccess(token) {
+      console.log('处理登录成功，token:', token);
       // 保存token
       setToken(token);
       

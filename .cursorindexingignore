@@ -1,2 +1,69 @@
 # Don't index SpecStory auto-save files, but allow explicit context inclusion via @ references
 .specstory/**
+
+# Vue 相关忽略
+node_modules/
+dist/
+.npm
+.yarn
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Spring Cloud 相关忽略
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE 相关忽略
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 操作系统相关忽略
+.DS_Store
+Thumbs.db
+
+# 其他常见忽略
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+*~.nib
+
+# 本地配置文件
+application-local.yml
+application-local.properties
+
+# 构建输出目录
+/build/
+/out/
+
+# 测试报告
+/test-output/
+
+# 缓存文件
+.gradle/
+.m2/
+
