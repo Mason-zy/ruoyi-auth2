@@ -127,3 +127,15 @@ xss:
   excludes: /system/notice
   # 匹配链接
   urlPatterns: /system/*,/monitor/*,/tool/*
+
+# BladeX认证配置
+blade:
+  auth:
+    # BladeX认证服务地址
+    url: https://auth.we-safer.net/oauth/token
+    # 客户端ID
+    client-id: chem_ruoyi
+    # 客户端密钥
+    client-secret: chem_ruoyi_secret
+    # 重定向URI
+    redirect-uri: http://192.168.100.106:81/auth/blade-callback

@@ -18,6 +18,7 @@
 <script>
 import { Message } from 'element-ui';
 import { setToken } from '@/utils/auth';
+import request from '@/utils/request';
 import store from '@/store';
 
 export default {
@@ -29,14 +30,14 @@ export default {
       errorMessage: '',
       progress: 0,
       code: '',
-      state: '',
+      tenantId: '',
       progressTimer: null
     };
   },
   created() {
     // 获取URL参数中的授权码
     this.code = this.$route.query.code;
-    this.state = this.$route.query.state || '';
+    this.tenantId = this.$route.query.state || '';
     
     if (!this.code) {
       this.handleError('未接收到有效的授权码，请重试');
@@ -50,7 +51,7 @@ export default {
       }
     }, 300);
     
-    // 模拟处理授权码
+    // 处理授权码
     this.handleAuthorizationCode();
   },
   beforeDestroy() {
@@ -61,68 +62,94 @@ export default {
   methods: {
     // 处理授权码
     handleAuthorizationCode() {
-      // 模拟API请求延迟
-      setTimeout(() => {
-        // 模拟成功获取token
-        this.mockExchangeCodeForToken();
-      }, 1500);
+      console.log('开始处理授权码:', this.code, '租户ID:', this.tenantId);
+      
+      // 调用后端接口处理授权码
+      request({
+        url: '/blade/auth/getTokenInfo',
+        method: 'get',
+        params: {
+          code: this.code,
+          tenant_id: this.tenantId
+        }
+      }).then(response => {
+        console.log('请求成功，响应数据:', response);
+        
+        // 清除进度条计时器
+        if (this.progressTimer) {
+          clearInterval(this.progressTimer);
+        }
+        
+        // 设置进度为100%
+        this.progress = 100;
+        
+        if (response.code === 200) {
+          // 成功获取令牌信息
+          const tokenInfo = response.data;
+          
+          // 显示获取到的信息
+          this.showTokenInfo(tokenInfo);
+        } else {
+          // 处理失败
+          this.handleError(response.msg || '获取令牌失败');
+        }
+      }).catch(error => {
+        this.handleError('获取令牌失败: ' + (error.message || '未知错误'));
+      });
     },
     
-    // 模拟与后端接口交换授权码获取token
-    mockExchangeCodeForToken() {
-      // 清除进度条计时器
-      if (this.progressTimer) {
-        clearInterval(this.progressTimer);
-      }
-      
-      // 设置进度为100%
-      this.progress = 100;
-      
-      // 模拟获取到的用户信息和token
-      const mockResponse = {
-        token: 'mock_token_' + Date.now(),
-        userInfo: {
-          username: 'blade_user',
-          nickname: 'BladeX用户',
-          avatar: '',
-          roles: ['common'],
-          permissions: ['system:user:list']
-        }
-      };
-      
-      // 弹窗显示获取到的信息
-      this.$alert(`
+    // 显示令牌信息
+    showTokenInfo(tokenInfo) {
+      // 构建HTML内容
+      let htmlContent = `
         <h3>成功获取授权信息</h3>
         <p><strong>授权码:</strong> ${this.code}</p>
-        <p><strong>租户ID:</strong> ${this.state}</p>
-        <p><strong>模拟Token:</strong> ${mockResponse.token}</p>
-        <p><strong>用户名:</strong> ${mockResponse.userInfo.username}</p>
-        <p><strong>昵称:</strong> ${mockResponse.userInfo.nickname}</p>
-        <p><strong>角色:</strong> ${mockResponse.userInfo.roles.join(', ')}</p>
-        <h4>后端实际处理流程:</h4>
-        <ol>
-          <li>使用授权码从BladeX获取访问令牌</li>
-          <li>用访问令牌获取用户信息</li>
-          <li>在若依系统中查找/创建用户</li>
-          <li>生成若依系统Token并返回</li>
-        </ol>
-        <h4>后端获取访问令牌的CURL命令示例:</h4>
-        <pre style="background:#f5f5f5;padding:8px;overflow:auto;font-size:12px;line-height:1.4;border-radius:4px;text-align:left;">
-curl -X POST "${process.env.VUE_APP_BLADE_AUTH_SERVER}/oauth/token" \\
-  -H "Tenant-Id: ${this.state}" \\
-  -H "Authorization: Basic $(echo -n "${process.env.VUE_APP_BLADE_CLIENT_ID}:客户端密钥" | base64)" \\
-  -H "Content-Type: application/x-www-form-urlencoded" \\
-  -d "grant_type=authorization_code" \\
-  -d "scope=all" \\
-  -d "code=${this.code}" \\
-  -d "redirect_uri=${process.env.VUE_APP_BLADE_CALLBACK_URL}"
-        </pre>
-      `, '第三方登录处理结果', {
+        <p><strong>租户ID:</strong> ${this.tenantId || '未指定'}</p>
+      `;
+      
+      // 添加令牌信息
+      if (tokenInfo.access_token) {
+        htmlContent += `<p><strong>访问令牌:</strong> ${tokenInfo.access_token}</p>`;
+      }
+      if (tokenInfo.token_type) {
+        htmlContent += `<p><strong>令牌类型:</strong> ${tokenInfo.token_type}</p>`;
+      }
+      if (tokenInfo.expires_in) {
+        htmlContent += `<p><strong>有效期:</strong> ${tokenInfo.expires_in}秒</p>`;
+      }
+      if (tokenInfo.refresh_token) {
+        htmlContent += `<p><strong>刷新令牌:</strong> ${tokenInfo.refresh_token}</p>`;
+      }
+      
+      // 添加用户信息(如果有)
+      if (tokenInfo.user_name) {
+        htmlContent += `<p><strong>用户名:</strong> ${tokenInfo.user_name}</p>`;
+      }
+      
+      htmlContent += `
+        <h4>说明:</h4>
+        <p>已从BladeX获取访问令牌，您可以使用此令牌访问受保护的资源。</p>
+      `;
+      
+      // 弹窗显示获取到的信息
+      this.$alert(htmlContent, 'BladeX认证结果', {
         dangerouslyUseHTMLString: true,
         confirmButtonText: '确定',
         callback: action => {
-          // 保存token并跳转到首页
-          this.handleLoginSuccess(mockResponse.token);
+          // 判断token信息中是否有若依系统的token
+          if (tokenInfo.ruoyi_token) {
+            // 有若依token，直接使用
+            this.handleLoginSuccess(tokenInfo.ruoyi_token);
+          } else {
+            // 无若依token，使用BladeX token
+            // 实际项目中，这里可能需要调用另一个接口来获取若依系统的token
+            // 或者直接跳转到指定页面
+            this.$message({
+              type: 'warning',
+              message: '获取到BladeX令牌，但未获取到若依系统令牌，请联系管理员'
+            });
+            this.$router.push('/login');
+          }
         }
       });
     },
