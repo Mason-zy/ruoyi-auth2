@@ -9,6 +9,7 @@ import com.ruoyi.common.utils.blade.BladeAuthUtil;
 import com.ruoyi.common.utils.ip.IpUtils;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.framework.manager.factory.AsyncFactory;
+import com.ruoyi.framework.web.service.BladeTokenManager;
 import com.ruoyi.framework.web.service.SysPermissionService;
 import com.ruoyi.framework.web.service.TokenService;
 import com.ruoyi.framework.web.service.UserDetailsServiceImpl;
@@ -61,9 +62,12 @@ public class BladeAuthController {
     
     @Autowired
     private RedisCache redisCache;
+    
+    @Autowired
+    private BladeTokenManager bladeTokenManager;
 
     /**
-     * 获取BladeX用户信息并登录若依系统
+     * 获取BladeX用户信息并直接登录若依系统
      * 
      * @param code 授权码
      * @param tenantId 租户ID（可选）
@@ -103,7 +107,7 @@ public class BladeAuthController {
         
         log.info("获取令牌结果: {}", tokenInfo);
         
-        // 如果获取令牌成功，处理若依登录
+        // 如果获取令牌成功且包含用户信息，查找并登录若依账号
         if (tokenInfo != null && tokenInfo.containsKey("account")) {
             String userName = (String) tokenInfo.get("account");
             if (userName == null || userName.isEmpty()) {
@@ -130,16 +134,17 @@ public class BladeAuthController {
                         // 4. 生成token(与原生登录流程完全一致)
                         String token = tokenService.createToken(loginUser);
                         
-                        // 5. 使用与原生登录接口相同的返回格式
+                        // 5. 保存BladeX令牌信息到Redis
+                        String accessToken = (String) tokenInfo.get("access_token");
+                        Integer expiresIn = (Integer) tokenInfo.get("expires_in");
+                        if (accessToken != null && expiresIn != null) {
+                            bladeTokenManager.setBladeToken(user.getUserId(), user.getUserName(), accessToken, expiresIn);
+                            log.info("成功保存用户BladeX令牌, userId={}, expiresIn={}秒", user.getUserId(), expiresIn);
+                        }
+                        
+                        // 6. 使用与原生登录接口相同的返回格式
                         AjaxResult ajax = AjaxResult.success();
                         ajax.put(Constants.TOKEN, token);
-                        
-                        // 6. 同时返回BladeX的token信息给前端
-                        Map<String, Object> bladeTokens = new HashMap<>();
-                        bladeTokens.put("access_token", tokenInfo.get("access_token"));
-                        bladeTokens.put("refresh_token", tokenInfo.get("refresh_token"));
-                        bladeTokens.put("expires_in", tokenInfo.get("expires_in"));
-                        ajax.put("blade_token", bladeTokens);
                         
                         log.info("成功生成若依系统令牌并执行登录");
                         return ajax;
@@ -149,7 +154,7 @@ public class BladeAuthController {
                         return AjaxResult.error("登录失败：" + e.getMessage());
                     }
                 } else {
-                    log.warn("未找到匹配的若依用户: {}", userName);
+                    log.warn("未找到匹配的若依用户: {}, 请确保已在若依系统中创建对应账号", userName);
                     return AjaxResult.error("未找到对应的系统用户，请联系管理员创建用户");
                 }
             }

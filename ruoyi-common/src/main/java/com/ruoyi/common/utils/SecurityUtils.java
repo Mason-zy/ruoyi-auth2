@@ -12,6 +12,8 @@ import com.ruoyi.common.constant.HttpStatus;
 import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.spring.SpringUtils;
+import java.lang.reflect.Method;
 
 /**
  * 安全服务工具类
@@ -173,6 +175,30 @@ public class SecurityUtils
     {
         return roles.stream().filter(StringUtils::hasText)
                 .anyMatch(x -> Constants.SUPER_ADMIN.equals(x) || PatternMatchUtils.simpleMatch(x, role));
+    }
+
+    /**
+     * 获取当前登录用户的BladeX访问令牌
+     * 
+     * @return BladeX访问令牌
+     */
+    public static String getCurrentBladeToken()
+    {
+        try
+        {
+            LoginUser loginUser = getLoginUser();
+            if (loginUser != null)
+            {
+                Object tokenManager = SpringUtils.getBean("bladeTokenManager");
+                Method method = tokenManager.getClass().getDeclaredMethod("getAccessToken", Long.class);
+                return (String) method.invoke(tokenManager, loginUser.getUserId());
+            }
+        }
+        catch (Exception e)
+        {
+            throw new ServiceException("获取BladeX令牌失败");
+        }
+        return null;
     }
 
 }
