@@ -48,4 +48,13 @@ export function getDeptList() {
     url: '/blade/api/getDeptList',
     method: 'get'
   })
+}
+
+// 将BladeX部门数据同步到若依系统
+export function syncBladeDeptToRuoyi(data) {
+  return request({
+    url: '/system/dept/syncBladeData',
+    method: 'post',
+    data: data
+  })
 } 

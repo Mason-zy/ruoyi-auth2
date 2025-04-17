@@ -1,0 +1,44 @@
+{
+    "code": 200,
+    "success": true,
+    "data": {
+        "records": [
+            {
+                "id": "1667350081680560129",
+                "createUser": "1123598821738675201",
+                "createDept": "1123598813738675201",
+                "createTime": "2023-06-10 09:56:51",
+                "updateUser": "1123598821738675201",
+                "updateTime": "2023-07-31 10:22:33",
+                "status": 1,
+                "isDeleted": 0,
+                "tenantId": "454661",
+                "code": "",
+                "userType": 1,
+                "account": "admin",
+                "name": "admin",
+                "realName": "admin",
+                "avatar": "",
+                "email": "",
+                "phone": "156****6799",
+                "birthday": "2023-06-10 09:56:51",
+                "sex": 1,
+                "roleId": "1667350078090235905",
+                "deptId": "1667350079897980929",
+                "postId": "1667350079902175234",
+                "tenantName": "镇江长兴酒精有限公司",
+                "userTypeName": "WEB",
+                "roleName": "管理员",
+                "deptName": "镇江长兴酒精有限公司",
+                "postName": "首席执行官",
+                "sexName": "男",
+                "userExt": ""
+            }
+        ],
+        "total": 78,
+        "size": 1,
+        "current": 1,
+        "pages": 78
+    },
+    "msg": "操作成功"
+}

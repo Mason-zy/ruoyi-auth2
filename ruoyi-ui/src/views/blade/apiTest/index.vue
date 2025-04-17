@@ -182,6 +182,10 @@
     
     <!-- 部门列表树形图弹窗 -->
     <el-dialog title="BladeX部门列表" :visible.sync="deptListDialogVisible" width="80%" append-to-body>
+      <div class="action-buttons" style="margin-bottom: 15px;">
+        <el-button type="primary" icon="el-icon-refresh" :loading="loading" @click="handleGetDeptList">刷新部门数据</el-button>
+        <el-button type="success" icon="el-icon-download" :loading="syncing" @click="handleSyncDepts">同步到若依系统</el-button>
+      </div>
       <el-row v-if="deptList.length > 0">
         <el-col :span="10">
           <el-card shadow="never" class="dept-tree-card">
@@ -244,7 +248,7 @@
 </template>
 
 <script>
-import { checkToken, getUserInfo, clearToken, getUserList, getPostList, getDeptList } from "@/api/blade/apiTest";
+import { checkToken, getUserInfo, clearToken, getUserList, getPostList, getDeptList, syncBladeDeptToRuoyi } from "@/api/blade/apiTest";
 import Pagination from '@/components/Pagination';
 
 export default {
@@ -283,7 +287,8 @@ export default {
         children: 'children',
         label: 'deptName'
       },
-      selectedDept: null
+      selectedDept: null,
+      syncing: false
     };
   },
   created() {
@@ -457,7 +462,7 @@ export default {
         }
       }).catch(error => {
         this.responseText = "请求失败: " + this.formatResponse(error);
-        this.$message.error('获取岗位列表失败: ' + error);
+        this.responseText = "请求失败: " + this.formatResponse(error);
       }).finally(() => {
         this.loading = false;
       });
@@ -527,7 +532,48 @@ export default {
     handleNodeClick(data) {
       this.selectedDept = data;
       console.log('选中部门节点:', data);
-    }
+    },
+    
+    // 同步部门数据到若依系统
+    handleSyncDepts() {
+      if (!this.deptList || this.deptList.length === 0) {
+        this.$message.error('没有可同步的部门数据，请先获取部门列表');
+        return;
+      }
+      
+      this.$confirm('确认将BladeX的部门数据同步到若依系统吗？此操作可能会覆盖现有数据', '警告', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.syncing = true;
+        this.responseText = "正在同步部门数据到若依系统...";
+        
+        // 直接传递部门数组，不需要额外包装
+        syncBladeDeptToRuoyi(this.deptList).then(response => {
+          this.responseText = this.formatResponse(response);
+          
+          if (response.code === 200) {
+            this.$message({
+              type: 'success',
+              message: '部门数据同步成功！' + response.msg
+            });
+          } else {
+            this.$message.error('部门数据同步失败: ' + (response.msg || '未知错误'));
+          }
+        }).catch(error => {
+          this.responseText = "同步失败: " + this.formatResponse(error);
+          this.$message.error('部门数据同步失败: ' + error);
+        }).finally(() => {
+          this.syncing = false;
+        });
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消同步操作'
+        });
+      });
+    },
   }
 };
 </script>

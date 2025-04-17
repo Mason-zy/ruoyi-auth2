@@ -1,0 +1,84 @@
+分析了BladeX和若依的用户、部门、岗位设计后，我可以设计一个将BladeX数据同步到若依的映射方案。两个系统有一定的相似性，但也存在一些差异需要处理。
+
+# BladeX到若依用户体系同步设计
+
+## 1. 部门(Dept)同步映射
+
+| BladeX字段 | 若依字段 | 处理方式 |
+|------------|----------|----------|
+| id | dept_id | 直接映射 |
+| parent_id | parent_id | 直接映射 |
+| ancestors | ancestors | 直接映射 |
+| dept_name | dept_name | 直接映射 |
+| sort | order_num | 直接映射 |
+| full_name | leader | 直接映射 |
+| phone | phone | 直接映射 |
+| email | email | 直接映射 |
+| status | status | 1:1映射 |
+| is_deleted | del_flag | 映射(0→0, 1→2) |
+| ~~tenant_id~~ | - | 忽略此字段 |
+
+## 2. 岗位(Post)同步映射
+
+| BladeX字段 | 若依字段 | 处理方式 |
+|------------|----------|----------|
+| id | post_id | 直接映射 |
+| post_code | post_code | 直接映射 |
+| post_name | post_name | 直接映射 |
+| sort | post_sort | 直接映射 |
+| category | remark | 可存储在备注中 |
+| status | status | 直接映射 |
+| ~~tenant_id~~ | - | 忽略此字段 |
+
+## 3. 用户(User)同步映射
+
+| BladeX字段 | 若依字段 | 处理方式 |
+|------------|----------|----------|
+| id | user_id | 直接映射 |
+| account | user_name | 直接映射 |
+| real_name | nick_name | 直接映射 |
+| email | email | 直接映射 |
+| phone | phonenumber | 直接映射 |
+| sex | sex | 需要确认性别值的映射关系 |
+| avatar | avatar | 直接映射，可能需要处理URL路径 |
+| dept_id | dept_id | 直接映射 |
+| user_type | user_type | 直接映射 |
+| status | status | 直接映射 |
+| is_deleted | del_flag | 映射(0→0, 1→2) |
+| ~~tenant_id~~ | - | 忽略此字段 |
+| ~~role_id~~ | - | 单独处理用户角色关系 |
+| ~~post_id~~ | - | 单独处理用户岗位关系 |
+
+## 4. 用户-岗位关系同步处理
+
+### 主要差异：
+- BladeX中post_id字段直接存在于用户表中
+- 若依使用SysUserPost关联表实现多对多关系
+
+### 处理方案：
+1. 从BladeX用户表中获取用户ID和岗位ID
+2. 为每个用户-岗位对创建SysUserPost记录
+3. 如果BladeX中一个用户只能有一个岗位，则直接1:1映射
+
+```sql
+-- 示例同步SQL
+INSERT INTO sys_user_post (user_id, post_id)
+SELECT id AS user_id, post_id 
+FROM blade_user 
+WHERE is_deleted = 0 AND post_id IS NOT NULL;
+```
+
+## 5. 同步策略与步骤
+
+1. **部门同步**：先同步部门数据，确保部门结构完整
+   - 处理部门树形结构
+   - 确保上级部门先同步
+
+2. **岗位同步**：同步岗位数据
+
+3. **用户同步**：同步用户基本信息
+   - 处理密码问题：默认密码或保留原密码
+   - 注意用户关联的部门必须已存在
+
+4. **关系同步**：同步用户-岗位关系
+   - 映射BladeX中的单一岗位关系到若依的多岗位关系
