@@ -40,4 +40,12 @@ export function getPostList(query) {
     method: 'get',
     params: query
   })
+}
+
+// 获取部门列表
+export function getDeptList() {
+  return request({
+    url: '/blade/api/getDeptList',
+    method: 'get'
+  })
 } 

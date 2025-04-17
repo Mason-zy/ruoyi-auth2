@@ -11,6 +11,7 @@
           <el-button type="danger" :loading="loading" @click="handleClearToken">清除令牌</el-button>
           <el-button type="warning" :loading="loading" @click="openUserListDialog">获取用户列表</el-button>
           <el-button type="info" :loading="loading" @click="openPostListDialog">获取岗位列表</el-button>
+          <el-button :loading="loading" @click="handleGetDeptList">获取部门列表</el-button>
         </el-col>
       </el-row>
 
@@ -178,11 +179,72 @@
         <el-button @click="postListDialogVisible = false">关 闭</el-button>
       </div>
     </el-dialog>
+    
+    <!-- 部门列表树形图弹窗 -->
+    <el-dialog title="BladeX部门列表" :visible.sync="deptListDialogVisible" width="80%" append-to-body>
+      <el-row v-if="deptList.length > 0">
+        <el-col :span="10">
+          <el-card shadow="never" class="dept-tree-card">
+            <div slot="header" class="clearfix">
+              <span>部门结构</span>
+            </div>
+            <el-tree
+              :data="deptList"
+              :props="deptProps"
+              node-key="id"
+              default-expand-all
+              :expand-on-click-node="false"
+              highlight-current
+              @node-click="handleNodeClick"
+            >
+              <span class="custom-tree-node" slot-scope="{ node, data }">
+                <span>{{ data.deptName }}</span>
+                <el-tag v-if="data.status === 1" type="success" size="mini">启用</el-tag>
+                <el-tag v-else-if="data.status === -1" type="danger" size="mini">禁用</el-tag>
+              </span>
+            </el-tree>
+          </el-card>
+        </el-col>
+        <el-col :span="14">
+          <el-card shadow="never" class="dept-detail-card">
+            <div slot="header" class="clearfix">
+              <span>部门详情</span>
+            </div>
+            <div v-if="selectedDept">
+              <el-descriptions border :column="1">
+                <el-descriptions-item label="部门ID">{{ selectedDept.id }}</el-descriptions-item>
+                <el-descriptions-item label="部门名称">{{ selectedDept.deptName }}</el-descriptions-item>
+                <el-descriptions-item label="部门全称">{{ selectedDept.fullName }}</el-descriptions-item>
+                <el-descriptions-item label="部门类型">
+                  {{ formatDeptCategory(selectedDept.deptCategory) }}
+                  <el-tag type="info" size="mini">{{ selectedDept.deptCategory }}</el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="部门状态">
+                  <el-tag v-if="selectedDept.status === 1" type="success">启用</el-tag>
+                  <el-tag v-else-if="selectedDept.status === -1" type="danger">禁用</el-tag>
+                  <el-tag v-else type="info">未知</el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="上级部门">{{ selectedDept.parentName || '无' }}</el-descriptions-item>
+                <el-descriptions-item label="排序">{{ selectedDept.sort }}</el-descriptions-item>
+                <el-descriptions-item label="祖级列表">{{ selectedDept.ancestors || '无' }}</el-descriptions-item>
+                <el-descriptions-item label="备注">{{ selectedDept.remark || '无' }}</el-descriptions-item>
+              </el-descriptions>
+            </div>
+            <el-empty v-else description="请选择部门查看详情"></el-empty>
+          </el-card>
+        </el-col>
+      </el-row>
+      <el-empty v-else description="暂无部门数据"></el-empty>
+      
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="deptListDialogVisible = false">关 闭</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { checkToken, getUserInfo, clearToken, getUserList, getPostList } from "@/api/blade/apiTest";
+import { checkToken, getUserInfo, clearToken, getUserList, getPostList, getDeptList } from "@/api/blade/apiTest";
 import Pagination from '@/components/Pagination';
 
 export default {
@@ -213,7 +275,15 @@ export default {
         postName: undefined,
         postCode: undefined,
         category: undefined
-      }
+      },
+      // 部门列表相关变量
+      deptListDialogVisible: false,
+      deptList: [],
+      deptProps: {
+        children: 'children',
+        label: 'deptName'
+      },
+      selectedDept: null
     };
   },
   created() {
@@ -403,6 +473,60 @@ export default {
         category: undefined
       };
       this.handleGetPostList();
+    },
+    
+    // 获取部门列表
+    handleGetDeptList() {
+      this.loading = true;
+      this.responseText = "正在获取部门列表数据...";
+      
+      getDeptList().then(response => {
+        // 更新响应结果显示
+        this.responseText = this.formatResponse(response);
+        
+        if (response.code === 200 && response.data && response.data.data) {
+          this.deptList = response.data.data;
+          this.deptListDialogVisible = true;
+          
+          this.$message({
+            type: 'success',
+            message: '成功获取部门列表'
+          });
+        } else if (response.code === 200 && response.data) {
+          // 直接返回data数组的情况
+          this.deptList = response.data;
+          this.deptListDialogVisible = true;
+          
+          this.$message({
+            type: 'success',
+            message: '成功获取部门列表'
+          });
+        } else {
+          this.$message.error('获取部门列表失败: ' + (response.msg || '未知错误'));
+        }
+      }).catch(error => {
+        this.responseText = "请求失败: " + this.formatResponse(error);
+        this.$message.error('获取部门列表失败: ' + error);
+      }).finally(() => {
+        this.loading = false;
+      });
+    },
+    
+    // 格式化部门类型
+    formatDeptCategory(category) {
+      const categoryMap = {
+        1: '公司',
+        2: '部门',
+        3: '小组',
+        4: '其他'
+      };
+      return categoryMap[category] || '未知';
+    },
+    
+    // 处理部门树节点点击
+    handleNodeClick(data) {
+      this.selectedDept = data;
+      console.log('选中部门节点:', data);
     }
   }
 };
@@ -411,5 +535,21 @@ export default {
 <style scoped>
 .mb20 {
   margin-bottom: 20px;
+}
+.custom-tree-node {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  padding-right: 8px;
+}
+.dept-tree-card {
+  height: 600px;
+  overflow-y: auto;
+}
+.dept-detail-card {
+  height: 600px;
+  overflow-y: auto;
 }
 </style> 

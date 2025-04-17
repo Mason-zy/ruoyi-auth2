@@ -152,4 +152,30 @@ public class BladeApiController extends BaseController
             return AjaxResult.error(e.getMessage());
         }
     }
+    
+    /**
+     * 获取BladeX系统部门列表
+     */
+    @GetMapping("/getDeptList")
+    @PreAuthorize("@ss.hasPermi('system:user:list')")
+    @Log(title = "获取BladeX部门列表", businessType = BusinessType.OTHER)
+    public AjaxResult getDeptList()
+    {
+        try
+        {
+            LoginUser loginUser = SecurityUtils.getLoginUser();
+            if (loginUser == null)
+            {
+                return AjaxResult.error("用户未登录");
+            }
+            
+            Map<String, Object> result = bladeApiClient.getDeptList(loginUser.getUserId());
+            
+            return AjaxResult.success(result);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
 } 
