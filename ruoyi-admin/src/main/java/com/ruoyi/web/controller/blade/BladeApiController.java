@@ -120,4 +120,36 @@ public class BladeApiController extends BaseController
             return AjaxResult.error(e.getMessage());
         }
     }
+
+    /**
+     * 获取BladeX系统岗位列表
+     */
+    @GetMapping("/getPostList")
+    @PreAuthorize("@ss.hasPermi('system:user:list')")
+    @Log(title = "获取BladeX岗位列表", businessType = BusinessType.OTHER)
+    public AjaxResult getPostList(
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "size", defaultValue = "10") Integer size,
+            @RequestParam(value = "postName", required = false) String postName,
+            @RequestParam(value = "postCode", required = false) String postCode,
+            @RequestParam(value = "category", required = false) Integer category)
+    {
+        try
+        {
+            LoginUser loginUser = SecurityUtils.getLoginUser();
+            if (loginUser == null)
+            {
+                return AjaxResult.error("用户未登录");
+            }
+            
+            Map<String, Object> result = bladeApiClient.getPostList(
+                loginUser.getUserId(), current, size, postName, postCode, category);
+            
+            return AjaxResult.success(result);
+        }
+        catch (ServiceException e)
+        {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
 } 

@@ -1,0 +1,161 @@
+{
+    "code": 200,
+    "data": [
+        {
+            "ancestors": "0",
+            "children": [
+                {
+                    "ancestors": "0,1667350079897980929",
+                    "children": [
+                        {
+                            "ancestors": "0,1667350079897980929,1668503278763757569",
+                            "deptCategory": 1,
+                            "deptCategoryName": "公司",
+                            "deptName": "测试下一级别",
+                            "fullName": "下一级别",
+                            "hasChildren": false,
+                            "id": "1912679533286830082",
+                            "isDeleted": 0,
+                            "parentId": "1668503278763757569",
+                            "parentName": "",
+                            "remark": "",
+                            "sort": 1,
+                            "status": 1,
+                            "tenantId": "454661"
+                        }
+                    ],
+                    "deptCategory": 4,
+                    "deptCategoryName": "",
+                    "deptName": "安环部",
+                    "fullName": "安环部",
+                    "hasChildren": false,
+                    "id": "1668503278763757569",
+                    "isDeleted": 0,
+                    "parentId": "1667350079897980929",
+                    "parentName": "",
+                    "remark": "",
+                    "sort": 2,
+                    "status": -1,
+                    "tenantId": "454661"
+                },
+                {
+                    "ancestors": "0,1667350079897980929",
+                    "deptCategory": 4,
+                    "deptCategoryName": "",
+                    "deptName": "财务部",
+                    "fullName": "财务部",
+                    "hasChildren": false,
+                    "id": "1668503376847556609",
+                    "isDeleted": 0,
+                    "parentId": "1667350079897980929",
+                    "parentName": "",
+                    "remark": "",
+                    "sort": 3,
+                    "status": -1,
+                    "tenantId": "454661"
+                },
+                {
+                    "ancestors": "0,1667350079897980929",
+                    "deptCategory": 4,
+                    "deptCategoryName": "",
+                    "deptName": "储运部",
+                    "fullName": "储运部",
+                    "hasChildren": false,
+                    "id": "1668507433901346818",
+                    "isDeleted": 0,
+                    "parentId": "1667350079897980929",
+                    "parentName": "",
+                    "remark": "",
+                    "sort": 4,
+                    "status": -1,
+                    "tenantId": "454661"
+                },
+                {
+                    "ancestors": "0,1667350079897980929",
+                    "children": [
+                        {
+                            "ancestors": "0,1667350079897980929,1668508725042335746",
+                            "deptCategory": 4,
+                            "deptCategoryName": "",
+                            "deptName": "仓库",
+                            "fullName": "仓库",
+                            "hasChildren": false,
+                            "id": "1668509583918354434",
+                            "isDeleted": 0,
+                            "parentId": "1668508725042335746",
+                            "parentName": "",
+                            "remark": "",
+                            "sort": 801,
+                            "status": -1,
+                            "tenantId": "454661"
+                        },
+                        {
+                            "ancestors": "0,1667350079897980929,1668508725042335746",
+                            "deptCategory": 4,
+                            "deptCategoryName": "",
+                            "deptName": "化验室",
+                            "fullName": "化验室",
+                            "hasChildren": false,
+                            "id": "1668509702638129154",
+                            "isDeleted": 0,
+                            "parentId": "1668508725042335746",
+                            "parentName": "",
+                            "remark": "",
+                            "sort": 802,
+                            "status": -1,
+                            "tenantId": "454661"
+                        },
+                      
+                       
+                      
+                       
+                        {
+                            "ancestors": "0,1667350079897980929,1668508725042335746",
+                            "deptCategory": 4,
+                            "deptCategoryName": "",
+                            "deptName": "锅炉工段",
+                            "fullName": "锅炉工段",
+                            "hasChildren": false,
+                            "id": "1668510606099599362",
+                            "isDeleted": 0,
+                            "parentId": "1668508725042335746",
+                            "parentName": "",
+                            "remark": "",
+                            "sort": 810,
+                            "status": -1,
+                            "tenantId": "454661"
+                        }
+                    ],
+                    "deptCategory": 4,
+                    "deptCategoryName": "",
+                    "deptName": "生产部",
+                    "fullName": "生产部",
+                    "hasChildren": false,
+                    "id": "1668508725042335746",
+                    "isDeleted": 0,
+                    "parentId": "1667350079897980929",
+                    "parentName": "",
+                    "remark": "",
+                    "sort": 8,
+                    "status": -1,
+                    "tenantId": "454661"
+                }
+            ],
+            "deptCategory": 1,
+            "deptCategoryName": "公司",
+            "deptName": "镇江长兴酒精有限公司",
+            "fullName": "镇江长兴酒精有限公司",
+            "hasChildren": false,
+            "id": "1667350079897980929",
+            "isDeleted": 0,
+            "parentId": "0",
+            "parentName": "",
+            "remark": "",
+            "sort": 1,
+            "status": -1,
+            "tenantId": "454661"
+        }
+    ],
+    "msg": "操作成功",
+    "success": true
+}

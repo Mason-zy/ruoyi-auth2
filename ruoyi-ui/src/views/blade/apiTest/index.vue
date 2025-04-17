@@ -10,6 +10,7 @@
           <el-button type="success" :loading="loading" @click="handleGetUserInfo">获取用户信息</el-button>
           <el-button type="danger" :loading="loading" @click="handleClearToken">清除令牌</el-button>
           <el-button type="warning" :loading="loading" @click="openUserListDialog">获取用户列表</el-button>
+          <el-button type="info" :loading="loading" @click="openPostListDialog">获取岗位列表</el-button>
         </el-col>
       </el-row>
 
@@ -108,11 +109,80 @@
         <el-button @click="userListDialogVisible = false">关 闭</el-button>
       </div>
     </el-dialog>
+    
+    <!-- 岗位列表查询弹窗 -->
+    <el-dialog title="BladeX岗位列表查询" :visible.sync="postListDialogVisible" width="80%" append-to-body>
+      <el-form :model="postQueryParams" ref="postQueryForm" :inline="true" class="mb20">
+        <el-form-item label="岗位名称" prop="postName">
+          <el-input
+            v-model="postQueryParams.postName"
+            placeholder="请输入岗位名称"
+            clearable
+            style="width: 160px"
+          />
+        </el-form-item>
+        <el-form-item label="岗位编号" prop="postCode">
+          <el-input
+            v-model="postQueryParams.postCode"
+            placeholder="请输入岗位编号"
+            clearable
+            style="width: 160px"
+          />
+        </el-form-item>
+        <el-form-item label="岗位类型" prop="category">
+          <el-select v-model="postQueryParams.category" placeholder="请选择岗位类型" clearable style="width: 160px">
+            <el-option label="全部" value=""></el-option>
+            <el-option label="高层" :value="1"></el-option>
+            <el-option label="中层" :value="2"></el-option>
+            <el-option label="基层" :value="3"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="el-icon-search" :loading="loading" @click="handleGetPostList">搜索</el-button>
+          <el-button icon="el-icon-refresh" @click="resetPostQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+      
+      <!-- 岗位列表表格 -->
+      <el-table
+        v-loading="loading"
+        :data="postList"
+        border
+        style="width: 100%">
+        <el-table-column prop="id" label="岗位ID" width="180" />
+        <el-table-column prop="postCode" label="岗位编号" width="120" />
+        <el-table-column prop="postName" label="岗位名称" width="150" />
+        <el-table-column prop="category" label="岗位类型" width="100">
+          <template slot-scope="scope">
+            <el-tag v-if="scope.row.category === 1" type="danger">高层</el-tag>
+            <el-tag v-else-if="scope.row.category === 2" type="warning">中层</el-tag>
+            <el-tag v-else-if="scope.row.category === 3" type="success">基层</el-tag>
+            <el-tag v-else type="info">未知</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="sort" label="排序" width="80" />
+        <el-table-column prop="createTime" label="创建时间" width="160" />
+        <el-table-column prop="remark" label="备注" />
+      </el-table>
+      
+      <!-- 分页 -->
+      <pagination
+        v-if="postTotal>0"
+        :total="postTotal"
+        :page.sync="postQueryParams.current"
+        :limit.sync="postQueryParams.size"
+        @pagination="handleGetPostList"
+      />
+      
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="postListDialogVisible = false">关 闭</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { checkToken, getUserInfo, clearToken, getUserList } from "@/api/blade/apiTest";
+import { checkToken, getUserInfo, clearToken, getUserList, getPostList } from "@/api/blade/apiTest";
 import Pagination from '@/components/Pagination';
 
 export default {
@@ -132,6 +202,17 @@ export default {
         account: undefined,
         realName: undefined,
         deptId: undefined
+      },
+      // 岗位列表相关变量
+      postListDialogVisible: false,
+      postList: [],
+      postTotal: 0,
+      postQueryParams: {
+        current: 1,
+        size: 10,
+        postName: undefined,
+        postCode: undefined,
+        category: undefined
       }
     };
   },
@@ -270,6 +351,58 @@ export default {
         deptId: undefined
       };
       this.handleGetUserList();
+    },
+    
+    // 打开岗位列表查询弹窗
+    openPostListDialog() {
+      this.postListDialogVisible = true;
+      this.handleGetPostList();
+    },
+    
+    // 获取岗位列表
+    handleGetPostList() {
+      this.loading = true;
+      
+      getPostList(this.postQueryParams).then(response => {
+        // 更新响应结果显示
+        this.responseText = this.formatResponse(response);
+        
+        // 处理嵌套的数据结构
+        if (response.code === 200 && response.data) {
+          const nestedData = response.data;
+          if (nestedData.code === 200 && nestedData.data) {
+            const pageData = nestedData.data;
+            this.postList = pageData.records || [];
+            this.postTotal = Number(pageData.total) || 0;
+            
+            this.$message({
+              type: 'success',
+              message: '成功获取岗位列表，共 ' + this.postTotal + ' 条记录'
+            });
+          } else {
+            this.$message.error('获取岗位列表失败: ' + (nestedData.msg || '未知错误'));
+          }
+        } else {
+          this.$message.error('获取岗位列表失败: ' + (response.msg || '未知错误'));
+        }
+      }).catch(error => {
+        this.responseText = "请求失败: " + this.formatResponse(error);
+        this.$message.error('获取岗位列表失败: ' + error);
+      }).finally(() => {
+        this.loading = false;
+      });
+    },
+    
+    // 重置岗位查询条件
+    resetPostQuery() {
+      this.postQueryParams = {
+        current: 1,
+        size: 10,
+        postName: undefined,
+        postCode: undefined,
+        category: undefined
+      };
+      this.handleGetPostList();
     }
   }
 };

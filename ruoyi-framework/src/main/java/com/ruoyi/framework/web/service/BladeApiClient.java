@@ -1,5 +1,6 @@
 package com.ruoyi.framework.web.service;
 
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,6 +38,12 @@ public class BladeApiClient
     @Value("${blade.api.base-url:https://we-safer.net/api}")
     private String apiBaseUrl;
     
+    @Value("${blade.api.client-id:chem_ruoyi}")
+    private String clientId;
+    
+    @Value("${blade.api.client-secret:chem_ruoyi_secret}")
+    private String clientSecret;
+    
     /**
      * 使用指定用户的令牌调用BladeX API
      * 
@@ -62,6 +69,12 @@ public class BladeApiClient
         headers.set("Blade-Auth", "bearer " + accessToken);
         headers.set("Blade-Requested-With", "BladeHttpRequest");
         
+        // 添加Basic认证
+        String auth = clientId + ":" + clientSecret;
+        byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes());
+        String authHeader = "Basic " + new String(encodedAuth);
+        headers.set("Authorization", authHeader);
+        
         // 构建请求实体
         HttpEntity<?> requestEntity = new HttpEntity<>(requestBody, headers);
         
@@ -75,18 +88,25 @@ public class BladeApiClient
         }
         catch (HttpClientErrorException e)
         {
+            log.error("调用BladeX API发生HttpClientErrorException: 状态码={}, 响应内容={}", e.getStatusCode(), e.getResponseBodyAsString());
+            
             if (e.getStatusCode() == HttpStatus.UNAUTHORIZED)
             {
-                // 令牌失效，删除该用户的令牌
+                // 令牌失效，删除该用户的令牌 dev
+
                 log.error("BladeX访问令牌已过期, userId={}", userId);
-                tokenManager.removeToken(userId);
+                // tokenManager.removeToken(userId);
                 throw new ServiceException("BladeX访问令牌已过期，请重新登录");
             }
-            log.error("调用BladeX API失败: {}, 响应内容: {}", e.getMessage(), e.getResponseBodyAsString());
-            throw new ServiceException("调用BladeX API失败: " + e.getMessage());
+            
+            // 尝试解析错误响应内容，可能包含更详细的错误信息
+            String errorResponse = e.getResponseBodyAsString();
+            log.error("BladeX API错误响应详情: {}", errorResponse);
+            
+            throw new ServiceException("调用BladeX API失败: " + e.getMessage() + ", 响应内容: " + errorResponse);
         }
         catch (Exception e) {
-            log.error("调用BladeX API发生异常: {}", e.getMessage(), e);
+            log.error("调用BladeX API发生异常: {}, 异常类型: {}", e.getMessage(), e.getClass().getName(), e);
             throw new ServiceException("调用BladeX API发生异常: " + e.getMessage());
         }
     }
@@ -150,6 +170,76 @@ public class BladeApiClient
         // 使用GET方法而不是POST
         Map<String, Object> result = callBladeApi(userId, finalUrl, HttpMethod.GET, null, Map.class);
         log.info("获取用户列表结果，总条数: {}", result != null && result.containsKey("total") ? result.get("total") : "未知");
+        return result;
+    }
+    
+    /**
+     * 获取BladeX系统中的岗位列表
+     * 
+     * @param userId 当前用户ID（用于获取令牌）
+     * @param current 当前页
+     * @param size 每页条数
+     * @param postName 岗位名称（可选）
+     * @param postCode 岗位编号（可选）
+     * @param category 岗位类型（可选）
+     * @return 岗位列表分页数据
+     */
+    public Map<String, Object> getPostList(Long userId, int current, int size, String postName, String postCode, Integer category)
+    {
+        // 硬编码API路径
+        String apiUrl = apiBaseUrl + "/blade-system/post/page";
+        
+        // 构建查询参数
+        StringBuilder urlBuilder = new StringBuilder(apiUrl);
+        urlBuilder.append("?current=").append(current).append("&size=").append(size);
+        
+        // 添加可选查询参数
+        if (StringUtils.isNotEmpty(postName)) {
+            urlBuilder.append("&postName=").append(postName);
+        }
+        if (StringUtils.isNotEmpty(postCode)) {
+            urlBuilder.append("&postCode=").append(postCode);
+        }
+        if (category != null) {
+            urlBuilder.append("&category=").append(category);
+        }
+        
+        String finalUrl = urlBuilder.toString();
+        log.info("调用BladeX获取岗位列表API: {}", finalUrl);
+        
+        // 使用GET方法
+        Map<String, Object> result = callBladeApi(userId, finalUrl, HttpMethod.GET, null, Map.class);
+        log.info("获取岗位列表结果，总条数: {}", result != null && result.containsKey("total") ? result.get("total") : "未知");
+        return result;
+    }
+    
+    /**
+     * 获取BladeX系统中的部门列表
+     * 
+     * @param userId 当前用户ID（用于获取令牌）
+     * @return 部门列表数据
+     */
+    public Map<String, Object> getDeptList(Long userId)
+    {
+        // 硬编码API路径
+        String apiUrl = apiBaseUrl + "/blade-system/dept/list";
+        
+        log.info("调用BladeX获取部门列表API: {}", apiUrl);
+        
+        // 使用GET方法，无需查询参数
+        Map<String, Object> result = callBladeApi(userId, apiUrl, HttpMethod.GET, null, Map.class);
+        
+        if (result != null) {
+            if (result.containsKey("data") && result.get("data") instanceof java.util.List) {
+                java.util.List<?> dataList = (java.util.List<?>) result.get("data");
+                log.info("获取部门列表成功，共 {} 个顶级部门", dataList.size());
+            } else {
+                log.info("获取部门列表成功，但数据结构与预期不符");
+            }
+        } else {
+            log.warn("获取部门列表结果为空");
+        }
+        
         return result;
     }
 } 

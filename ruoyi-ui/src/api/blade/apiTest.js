@@ -31,4 +31,13 @@ export function getUserList(params) {
     method: 'get',
     params
   })
+}
+
+// 获取岗位列表
+export function getPostList(query) {
+  return request({
+    url: '/blade/api/getPostList',
+    method: 'get',
+    params: query
+  })
 } 
