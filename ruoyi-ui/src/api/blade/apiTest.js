@@ -53,8 +53,17 @@ export function getDeptList() {
 // 将BladeX部门数据同步到若依系统
 export function syncBladeDeptToRuoyi(data) {
   return request({
-    url: '/system/dept/syncBladeData',
+    url: '/system/dept/syncBladeDept',
     method: 'post',
-    data: data
+    headers: {
+      'Content-Type': 'application/json;charset=utf-8'
+    },
+    data: data,
+    // 添加额外配置以便更好地处理错误
+    validateStatus: function (status) {
+      // 接受所有状态码，让响应拦截器处理
+      return true;
+    },
+    timeout: 30000 // 增加超时时间到30秒，处理大量数据同步
   })
 } 

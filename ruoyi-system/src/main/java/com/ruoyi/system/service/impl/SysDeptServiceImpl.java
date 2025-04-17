@@ -1,11 +1,14 @@
 package com.ruoyi.system.service.impl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.domain.TreeSelect;
@@ -334,5 +337,150 @@ public class SysDeptServiceImpl implements ISysDeptService
     private boolean hasChild(List<SysDept> list, SysDept t)
     {
         return getChildList(list, t).size() > 0;
+    }
+
+    /**
+     * 同步BladeX部门数据到若依系统
+     * 
+     * @param bladeDeptList BladeX部门数据列表
+     * @return 同步结果信息
+     */
+    @Override
+    @Transactional
+    public String syncBladeDept(List<Map<String, Object>> bladeDeptList)
+    {
+        if (bladeDeptList == null || bladeDeptList.isEmpty())
+        {
+            return "未接收到有效的部门数据";
+        }
+        
+        int insertCount = 0;
+        int updateCount = 0;
+        Map<String, Long> idMapping = new HashMap<>();
+        
+        // 获取当前所有部门ID和对应对象的映射
+        List<SysDept> existingDepts = deptMapper.selectDeptList(new SysDept());
+        Map<Long, SysDept> existingDeptMap = existingDepts.stream()
+                .collect(Collectors.toMap(SysDept::getDeptId, dept -> dept));
+        
+        // 先将树形结构扁平化，确保正确处理所有部门
+        List<Map<String, Object>> flatDeptList = new ArrayList<>();
+        flattenDeptTree(bladeDeptList, flatDeptList);
+        
+        // 开始同步部门数据
+        for (Map<String, Object> bladeDept : flatDeptList)
+        {
+            try
+            {
+                // 解析BladeX部门数据
+                String id = getStringValue(bladeDept, "id");
+                String parentId = getStringValue(bladeDept, "parentId");
+                String deptName = getStringValue(bladeDept, "deptName");
+                if (StringUtils.isEmpty(deptName)) {
+                    deptName = getStringValue(bladeDept, "fullName");
+                }
+                String fullName = getStringValue(bladeDept, "fullName");
+                String ancestors = getStringValue(bladeDept, "ancestors");
+                
+                // 默认为正常状态
+                Integer status = 0;
+                Object statusObj = bladeDept.get("status");
+                if (statusObj != null) {
+                    status = ((Number) statusObj).intValue();
+                    // 状态值转换：BladeX的1对应若依的0(正常)，BladeX的其他值对应若依的1(停用)
+                    status = (status == 1) ? 0 : 1;
+                }
+                
+                Integer sort = 0;
+                Object sortObj = bladeDept.get("sort");
+                if (sortObj != null) {
+                    sort = ((Number) sortObj).intValue();
+                }
+                
+                // 如果ID为空，则跳过
+                if (StringUtils.isEmpty(id))
+                {
+                    continue;
+                }
+                
+                Long deptId = Long.parseLong(id);
+                Long parentDeptId = StringUtils.isEmpty(parentId) || "0".equals(parentId) ? 0L : Long.parseLong(parentId);
+                
+                // 准备SysDept对象
+                SysDept sysDept = new SysDept();
+                sysDept.setDeptId(deptId);
+                sysDept.setParentId(parentDeptId);
+                sysDept.setDeptName(deptName);
+                sysDept.setLeader(fullName); // BladeX的fullName对应若依的leader字段
+                sysDept.setAncestors(ancestors);
+                sysDept.setStatus(status.toString());
+                sysDept.setOrderNum(sort);
+                sysDept.setDelFlag("0"); // 默认为未删除
+                
+                // 处理email和phone字段
+                String email = getStringValue(bladeDept, "email");
+                String phone = getStringValue(bladeDept, "phone");
+                sysDept.setEmail(email);
+                sysDept.setPhone(phone);
+                
+                // 检查部门是否已存在
+                if (existingDeptMap.containsKey(deptId))
+                {
+                    // 部门已存在，更新部门信息
+                    sysDept.setUpdateBy(SecurityUtils.getUsername());
+                    deptMapper.updateDept(sysDept);
+                    updateCount++;
+                }
+                else
+                {
+                    // 部门不存在，新增部门
+                    sysDept.setCreateBy(SecurityUtils.getUsername());
+                    deptMapper.insertDept(sysDept);
+                    insertCount++;
+                }
+                
+                // 记录ID映射关系，用于后续处理
+                idMapping.put(id, deptId);
+            }
+            catch (Exception e)
+            {
+                throw new ServiceException("同步部门数据失败: " + e.getMessage());
+            }
+        }
+        
+        return String.format("同步完成，新增部门: %d个，更新部门: %d个", insertCount, updateCount);
+    }
+    
+    /**
+     * 将树形部门数据扁平化为列表
+     * 
+     * @param treeList 树形部门列表
+     * @param flatList 扁平化结果列表
+     */
+    private void flattenDeptTree(List<Map<String, Object>> treeList, List<Map<String, Object>> flatList) {
+        if (treeList == null || treeList.isEmpty()) {
+            return;
+        }
+        
+        for (Map<String, Object> dept : treeList) {
+            // 添加当前部门
+            flatList.add(dept);
+            
+            // 递归处理子部门
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> children = (List<Map<String, Object>>) dept.get("children");
+            if (children != null && !children.isEmpty()) {
+                flattenDeptTree(children, flatList);
+            }
+        }
+    }
+    
+    /**
+     * 从Map中获取字符串值，避免类型转换异常
+     */
+    private String getStringValue(Map<String, Object> map, String key)
+    {
+        Object value = map.get(key);
+        return value != null ? value.toString() : "";
     }
 }

@@ -1,6 +1,7 @@
 package com.ruoyi.system.service;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.common.core.domain.TreeSelect;
 import com.ruoyi.common.core.domain.entity.SysDept;
 
@@ -121,4 +122,12 @@ public interface ISysDeptService
      * @return 结果
      */
     public int deleteDeptById(Long deptId);
+
+    /**
+     * 同步BladeX部门数据到若依系统
+     * 
+     * @param bladeDeptList BladeX部门数据列表
+     * @return 同步结果信息
+     */
+    public String syncBladeDept(List<Map<String, Object>> bladeDeptList);
 }

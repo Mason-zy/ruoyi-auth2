@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.system;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.ArrayUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -128,5 +129,16 @@ public class SysDeptController extends BaseController
         }
         deptService.checkDeptDataScope(deptId);
         return toAjax(deptService.deleteDeptById(deptId));
+    }
+    
+    /**
+     * 同步BladeX部门数据到若依系统
+     */
+    @PreAuthorize("@ss.hasPermi('system:dept:edit')")
+    @Log(title = "部门管理", businessType = BusinessType.OTHER)
+    @PostMapping("/syncBladeDept")
+    public AjaxResult syncBladeDept(@RequestBody List<Map<String, Object>> bladeDeptList)
+    {
+        return success(deptService.syncBladeDept(bladeDeptList));
     }
 }
