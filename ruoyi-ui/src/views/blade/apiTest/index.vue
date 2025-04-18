@@ -82,16 +82,23 @@
         </el-form-item>
       </el-form>
       
+      <div class="action-buttons" style="margin-bottom: 15px;">
+        <el-button type="success" icon="el-icon-download" :loading="userSyncLoading" @click="handleSyncUsers">同步到若依系统</el-button>
+      </div>
+      
       <!-- 用户列表表格 -->
       <el-table
         v-loading="loading"
         :data="userList"
         border
+        @selection-change="handleSelectionChange"
         style="width: 100%">
+        <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="id" label="用户ID" width="180" />
         <el-table-column prop="account" label="账号" width="120" />
         <el-table-column prop="realName" label="姓名" width="120" />
         <el-table-column prop="deptName" label="部门" width="150" />
+        <el-table-column prop="postName" label="岗位" width="150" />
         <el-table-column prop="email" label="邮箱" width="180" />
         <el-table-column prop="phone" label="手机号" width="120" />
         <el-table-column prop="createTime" label="创建时间" width="160" />
@@ -145,7 +152,7 @@
       </el-form>
       
       <div class="action-buttons" style="margin-bottom: 15px;">
-        <el-button type="success" icon="el-icon-download" :loading="syncing" @click="handleSyncPosts">同步到若依系统</el-button>
+        <el-button type="success" icon="el-icon-download" :loading="postSyncLoading" @click="handleSyncPosts">同步到若依系统</el-button>
       </div>
       
       <!-- 岗位列表表格 -->
@@ -153,7 +160,9 @@
         v-loading="loading"
         :data="postList"
         border
+        @selection-change="handlePostSelectionChange"
         style="width: 100%">
+        <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="id" label="岗位ID" width="180" />
         <el-table-column prop="postCode" label="岗位编号" width="120" />
         <el-table-column prop="postName" label="岗位名称" width="150" />
@@ -188,7 +197,7 @@
     <el-dialog title="BladeX部门列表" :visible.sync="deptListDialogVisible" width="80%" append-to-body>
       <div class="action-buttons" style="margin-bottom: 15px;">
         <el-button type="primary" icon="el-icon-refresh" :loading="loading" @click="handleGetDeptList">刷新部门数据</el-button>
-        <el-button type="success" icon="el-icon-download" :loading="syncing" @click="handleSyncDepts">同步到若依系统</el-button>
+        <el-button type="success" icon="el-icon-download" :loading="deptSyncLoading" @click="handleSyncDepts">同步到若依系统</el-button>
       </div>
       <el-row v-if="deptList.length > 0">
         <el-col :span="10">
@@ -252,8 +261,18 @@
 </template>
 
 <script>
-import { checkToken, getUserInfo, clearToken, getUserList, getPostList, getDeptList, syncBladeDeptToRuoyi, syncBladePostToRuoyi } from "@/api/blade/apiTest";
-import Pagination from '@/components/Pagination';
+import { 
+  checkToken, 
+  getUserInfo, 
+  clearToken, 
+  getUserList, 
+  getPostList, 
+  getDeptList, 
+  syncBladeDeptToRuoyi, 
+  syncBladePostToRuoyi,
+  syncBladeUserToRuoyi
+} from "@/api/blade/apiTest";
+import Pagination from "@/components/Pagination";
 
 export default {
   name: "BladeApiTest",
@@ -265,6 +284,8 @@ export default {
       tokenInfo: {},
       userListDialogVisible: false,
       userList: [],
+      userSelection: [],
+      userSyncLoading: false,
       total: 0,
       queryParams: {
         current: 1,
@@ -292,7 +313,9 @@ export default {
         label: 'deptName'
       },
       selectedDept: null,
-      syncing: false
+      postSyncLoading: false,
+      deptSelection: [],
+      deptSyncLoading: false
     };
   },
   created() {
@@ -564,36 +587,45 @@ export default {
       console.log('选中部门节点:', data);
     },
     
-    // 同步部门数据到若依系统
-    handleSyncDepts() {
-      if (!this.deptList || this.deptList.length === 0) {
-        this.$message.error('没有可同步的部门数据，请先获取部门列表');
+    // 处理岗位表格选择变化
+    handlePostSelectionChange(selection) {
+      this.postSelection = selection;
+    },
+    
+    // 同步岗位数据到若依系统
+    handleSyncPosts() {
+      if (!this.postSelection || this.postSelection.length === 0) {
+        this.$message.error('请至少选择一个岗位进行同步');
         return;
       }
       
-      console.log('准备同步数据，部门数量:', this.deptList.length);
-      
-      this.$confirm('确认将BladeX的部门数据同步到若依系统吗？此操作可能会覆盖现有数据', '警告', {
+      this.$confirm('确认将选中的BladeX岗位数据同步到若依系统吗？此操作可能会覆盖现有数据', '警告', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        this.syncing = true;
-        this.responseText = "正在同步部门数据到若依系统...";
+        this.postSyncLoading = true;
+        this.responseText = "正在同步岗位数据到若依系统...";
         
         // 打印要发送的数据，便于调试
-        console.log('发送同步请求，数据示例:', this.deptList[0]);
+        console.log('发送同步请求，数据数量:', this.postSelection.length);
         
-        // 直接传递部门数组，不需要额外包装
-        syncBladeDeptToRuoyi(this.deptList).then(response => {
+        // 使用选中的岗位数据进行同步
+        syncBladePostToRuoyi(this.postSelection).then(response => {
           console.log('同步响应成功:', response);
           this.responseText = this.formatResponse(response);
           
-          // 无论返回什么，都当作成功处理，避免弹窗报错
-          this.$message({
-            type: 'success',
-            message: '部门数据同步操作已完成！' + (response.msg || '')
-          });
+          // 判断响应中是否包含警告信息
+          if (response.msg && response.msg.includes("警告信息")) {
+            // 有警告信息，使用HTML格式展示
+            this.$alert(response.msg, "同步结果", {
+              dangerouslyUseHTMLString: true,
+              closeOnClickModal: false
+            });
+          } else {
+            // 没有警告，直接显示成功信息
+            this.$modal.msgSuccess(response.msg || "同步成功");
+          }
         }).catch(error => {
           console.error('同步请求失败:', error);
           
@@ -619,7 +651,7 @@ export default {
             duration: 5000
           });
         }).finally(() => {
-          this.syncing = false;
+          this.postSyncLoading = false;
         });
       }).catch(() => {
         this.$message({
@@ -629,36 +661,42 @@ export default {
       });
     },
     
-    // 同步岗位数据到若依系统
-    handleSyncPosts() {
-      if (!this.postList || this.postList.length === 0) {
-        this.$message.error('没有可同步的岗位数据，请先获取岗位列表');
+    // 同步部门数据到若依系统
+    handleSyncDepts() {
+      if (!this.deptList || this.deptList.length === 0) {
+        this.$message.error('没有可同步的部门数据，请先获取部门列表');
         return;
       }
       
-      console.log('准备同步数据，岗位数量:', this.postList.length);
-      
-      this.$confirm('确认将BladeX的岗位数据同步到若依系统吗？此操作可能会覆盖现有数据', '警告', {
+      // 因为部门是树形结构，我们使用整个部门列表而不是选择
+      // 但仍然提供更好的界面反馈
+      this.$confirm('确认将BladeX的部门数据同步到若依系统吗？此操作可能会覆盖现有数据', '警告', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        this.syncing = true;
-        this.responseText = "正在同步岗位数据到若依系统...";
+        this.deptSyncLoading = true;
+        this.responseText = "正在同步部门数据到若依系统...";
         
         // 打印要发送的数据，便于调试
-        console.log('发送同步请求，数据示例:', this.postList[0]);
+        console.log('发送同步请求，部门数量:', this.deptList.length);
         
-        // 直接传递岗位数组，不需要额外包装
-        syncBladePostToRuoyi(this.postList).then(response => {
+        // 直接传递部门数组
+        syncBladeDeptToRuoyi(this.deptList).then(response => {
           console.log('同步响应成功:', response);
           this.responseText = this.formatResponse(response);
           
-          // 无论返回什么，都当作成功处理，避免弹窗报错
-          this.$message({
-            type: 'success',
-            message: '岗位数据同步操作已完成！' + (response.msg || '')
-          });
+          // 判断响应中是否包含警告信息
+          if (response.msg && response.msg.includes("警告信息")) {
+            // 有警告信息，使用HTML格式展示
+            this.$alert(response.msg, "同步结果", {
+              dangerouslyUseHTMLString: true,
+              closeOnClickModal: false
+            });
+          } else {
+            // 没有警告，直接显示成功信息
+            this.$modal.msgSuccess(response.msg || "同步成功");
+          }
         }).catch(error => {
           console.error('同步请求失败:', error);
           
@@ -684,7 +722,7 @@ export default {
             duration: 5000
           });
         }).finally(() => {
-          this.syncing = false;
+          this.deptSyncLoading = false;
         });
       }).catch(() => {
         this.$message({
@@ -692,6 +730,59 @@ export default {
           message: '已取消同步操作'
         });
       });
+    },
+    
+    // 同步用户数据到若依系统
+    handleSyncUsers() {
+      if (!this.userSelection || this.userSelection.length === 0) {
+        this.$message.error('请至少选择一个用户进行同步');
+        return;
+      }
+      
+      this.$modal.confirm('确定要同步选中的用户数据到系统中吗？').then(() => {
+        this.userSyncLoading = true;
+        
+        const userList = this.userSelection.map(item => {
+          // 转换为若依需要的格式
+          return {
+            id: item.id,
+            account: item.account,
+            realName: item.realName,
+            email: item.email,
+            phone: item.phone,
+            avatar: item.avatar,
+            sex: item.sex,
+            deptId: item.deptId,
+            postId: item.postId,
+            postCode: item.postCode,
+            status: item.status,
+            isDeleted: item.isDeleted
+          };
+        });
+        
+        syncBladeUserToRuoyi(userList).then(response => {
+          this.userSyncLoading = false;
+          
+          // 判断响应中是否包含警告信息
+          if (response.msg && response.msg.includes("警告信息")) {
+            // 有警告信息，使用HTML格式展示
+            this.$alert(response.msg, "同步结果", {
+              dangerouslyUseHTMLString: true,
+              closeOnClickModal: false
+            });
+          } else {
+            // 没有警告，直接显示成功信息
+            this.$modal.msgSuccess(response.msg || "同步成功");
+          }
+        }).catch(() => {
+          this.userSyncLoading = false;
+        });
+      });
+    },
+    
+    // 处理表格选择变化
+    handleSelectionChange(selection) {
+      this.userSelection = selection;
     },
   }
 };

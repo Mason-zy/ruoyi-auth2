@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.system;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.ArrayUtils;
@@ -252,5 +253,16 @@ public class SysUserController extends BaseController
     public AjaxResult deptTree(SysDept dept)
     {
         return success(deptService.selectDeptTreeList(dept));
+    }
+
+    /**
+     * 同步BladeX用户数据到若依系统
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:edit')")
+    @Log(title = "用户管理", businessType = BusinessType.OTHER)
+    @PostMapping("/syncBladeUser")
+    public AjaxResult syncBladeUser(@RequestBody List<Map<String, Object>> bladeUserList)
+    {
+        return success(userService.syncBladeUser(bladeUserList));
     }
 }

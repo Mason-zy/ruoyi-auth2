@@ -2,6 +2,7 @@ package com.ruoyi.system.service.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.validation.Validator;
 import org.slf4j.Logger;
@@ -547,4 +548,232 @@ public class SysUserServiceImpl implements ISysUserService
         }
         return successMsg.toString();
     }
+
+    /**
+     * 同步BladeX用户数据到若依系统
+     * 
+     * @param bladeUserList BladeX用户数据列表
+     * @return 同步结果信息
+     */
+    @Override
+    @Transactional
+    public String syncBladeUser(List<Map<String, Object>> bladeUserList)
+    {
+        if (bladeUserList == null || bladeUserList.isEmpty())
+        {
+            return "未接收到有效的用户数据";
+        }
+        
+        int insertCount = 0;
+        int updateCount = 0;
+        int postRelationCount = 0;
+        StringBuilder warningMsg = new StringBuilder(); // 收集警告信息
+        
+        // 获取所有岗位，用于后续匹配岗位ID
+        List<SysPost> allPosts = postMapper.selectPostAll();
+        Map<String, SysPost> postCodeMap = allPosts.stream()
+                .collect(Collectors.toMap(SysPost::getPostCode, post -> post));
+        
+        for (Map<String, Object> bladeUser : bladeUserList)
+        {
+            try
+            {
+                // 解析BladeX用户数据
+                String id = getStringValue(bladeUser, "id");
+                String account = getStringValue(bladeUser, "account");
+                String realName = getStringValue(bladeUser, "realName");
+                String email = getStringValue(bladeUser, "email");
+                String phone = getStringValue(bladeUser, "phone");
+                String avatar = getStringValue(bladeUser, "avatar");
+                String sex = getStringValue(bladeUser, "sex");
+                String deptId = getStringValue(bladeUser, "deptId");
+                
+                // 状态: BladeX的1对应若依的0(正常)，其他值对应1(停用)
+                String status = "0";
+                Object statusObj = bladeUser.get("status");
+                if (statusObj != null) {
+                    int statusValue = ((Number) statusObj).intValue();
+                    status = (statusValue == 1) ? "0" : "1";
+                }
+                
+                // 删除标志: BladeX的0对应若依的0(存在)，1对应2(删除)
+                String delFlag = "0";
+                Object deletedObj = bladeUser.get("isDeleted");
+                if (deletedObj != null) {
+                    int deleteValue = ((Number) deletedObj).intValue();
+                    delFlag = (deleteValue == 0) ? "0" : "2";
+                }
+                
+                // 性别转换: 需要确认对应关系
+                if (sex != null) {
+                    // BladeX的性别值(1=男, 2=女, -1=未知)转换为若依的性别值(0=男,1=女,2=未知)
+                    switch (sex) {
+                        case "1":
+                            sex = "0"; // 男
+                            break;
+                        case "2":
+                            sex = "1"; // 女
+                            break;
+                        default:
+                            sex = "2"; // 未知或其他值
+                            break;
+                    }
+                } else {
+                    sex = "2"; // 默认为未知
+                }
+                
+                // 如果ID为空，则跳过
+                if (StringUtils.isEmpty(id) || StringUtils.isEmpty(account))
+                {
+                    String warning = "用户ID或账号为空，跳过同步";
+                    log.warn(warning);
+                    warningMsg.append("<br/>- ").append(warning);
+                    continue;
+                }
+                
+                Long userId = Long.parseLong(id);
+                
+                // 准备SysUser对象
+                SysUser sysUser = new SysUser();
+                sysUser.setUserId(userId);
+                sysUser.setUserName(account);
+                sysUser.setNickName(realName);
+                sysUser.setEmail(email);
+                sysUser.setPhonenumber(phone);
+                sysUser.setAvatar(avatar);
+                sysUser.setSex(sex);
+                sysUser.setStatus(status);
+                sysUser.setDelFlag(delFlag);
+                
+                // 设置部门ID
+                if (StringUtils.isNotEmpty(deptId)) {
+                    sysUser.setDeptId(Long.parseLong(deptId));
+                }
+                
+                // 默认密码设置
+                // 注意：实际应用中应该为同步的用户设置合适的初始密码或使用随机密码并通知用户修改
+                sysUser.setPassword(SecurityUtils.encryptPassword("123456"));
+                
+                // 检查用户是否已存在
+                SysUser existUser = userMapper.selectUserById(userId);
+                if (existUser != null)
+                {
+                    // 用户已存在，更新用户信息
+                    if (checkUserNameUnique(sysUser) == UserConstants.UNIQUE) {
+                        sysUser.setUpdateBy(SecurityUtils.getUsername());
+                        userMapper.updateUser(sysUser);
+                        updateCount++;
+                        
+                        // 处理岗位关联
+                        syncUserPost(sysUser, bladeUser, postCodeMap);
+                        postRelationCount++;
+                    } else {
+                        String warning = String.format("用户名 '%s' 已存在，无法更新 ID '%s'", account, id);
+                        log.warn(warning);
+                        warningMsg.append("<br/>- ").append(warning);
+                    }
+                }
+                else
+                {
+                    // 用户不存在，新增用户
+                    if (checkUserNameUnique(sysUser) == UserConstants.UNIQUE)
+                    {
+                        sysUser.setCreateBy(SecurityUtils.getUsername());
+                        userMapper.insertUser(sysUser);
+                        insertCount++;
+                        
+                        // 处理岗位关联
+                        syncUserPost(sysUser, bladeUser, postCodeMap);
+                        postRelationCount++;
+                    } else {
+                        String warning = String.format("用户名 '%s' 已存在，无法新增", account);
+                        log.warn(warning);
+                        warningMsg.append("<br/>- ").append(warning);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                String error = "同步用户数据失败: " + e.getMessage();
+                log.error(error, e);
+                warningMsg.append("<br/>- ").append(error);
+            }
+        }
+        
+        StringBuilder resultMsg = new StringBuilder();
+        resultMsg.append(String.format("同步完成，新增用户: %d个，更新用户: %d个，更新岗位关联: %d个", 
+                insertCount, updateCount, postRelationCount));
+        
+        // 如果有警告信息，添加到结果中
+        if (warningMsg.length() > 0) {
+            resultMsg.append("<br/><br/>警告信息:").append(warningMsg);
+        }
+        
+        return resultMsg.toString();
+    }
+    
+    /**
+     * 同步用户与岗位关联关系
+     */
+    private void syncUserPost(SysUser user, Map<String, Object> bladeUser, Map<String, SysPost> postCodeMap)
+    {
+        try
+        {
+            // 先删除用户与岗位关联
+            userPostMapper.deleteUserPostByUserId(user.getUserId());
+            
+            // 获取BladeX用户的postId
+            Object postIdObj = bladeUser.get("postId");
+            if (postIdObj == null) {
+                return;
+            }
+            
+            String postId = postIdObj.toString();
+            if (StringUtils.isEmpty(postId)) {
+                return;
+            }
+            
+            // 从BladeX获取岗位编码
+            Object postCodeObj = bladeUser.get("postCode");
+            String postCode = (postCodeObj != null) ? postCodeObj.toString() : null;
+            
+            // 根据岗位编码查找若依系统中的岗位
+            if (StringUtils.isNotEmpty(postCode) && postCodeMap.containsKey(postCode)) {
+                SysPost post = postCodeMap.get(postCode);
+                // 插入用户岗位关联记录
+                Long[] postIds = {post.getPostId()};
+                user.setPostIds(postIds);
+                insertUserPost(user);
+                log.info("用户 {} 关联岗位 {} 成功", user.getUserName(), post.getPostName());
+            } else {
+                // 直接使用BladeX的岗位ID
+                Long bladePostId = Long.parseLong(postId);
+                SysPost post = postMapper.selectPostById(bladePostId);
+                if (post != null) {
+                    // 插入用户岗位关联记录
+                    Long[] postIds = {post.getPostId()};
+                    user.setPostIds(postIds);
+                    insertUserPost(user);
+                    log.info("用户 {} 关联岗位 {} 成功", user.getUserName(), post.getPostName());
+                } else {
+                    log.warn("未找到用户 {} 对应的岗位信息，postId={}, postCode={}", 
+                            user.getUserName(), postId, postCode);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            log.error("同步用户岗位关联失败: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 从Map中获取字符串值，避免类型转换异常
+     */
+    private String getStringValue(Map<String, Object> map, String key)
+    {
+        Object value = map.get(key);
+        return value != null ? value.toString() : "";
+    }
 }
+

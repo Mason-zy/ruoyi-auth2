@@ -105,7 +105,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="归属部门" prop="deptId">
-              <treeselect v-model="form.deptId" :options="enabledDeptOptions" :show-count="true" placeholder="请选择归属部门" />
+              <treeselect v-model="form.deptId" :options="enabledDeptOptions" :normalizer="normalizer" :show-count="true" placeholder="请选择归属部门" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -336,7 +336,7 @@ export default {
       this.loading = true;
       listUser(this.addDateRange(this.queryParams, this.dateRange)).then(response => {
           this.userList = response.rows;
-          this.total = response.total;
+          this.total = Number(response.total); // 确保total是数字类型
           this.loading = false;
         }
       );
@@ -344,8 +344,8 @@ export default {
     /** 查询部门下拉树结构 */
     getDeptTree() {
       deptTreeSelect().then(response => {
-        this.deptOptions = response.data;
-        this.enabledDeptOptions = this.filterDisabledDept(JSON.parse(JSON.stringify(response.data)));
+        this.deptOptions = this.processDeptOptions(response.data);
+        this.enabledDeptOptions = this.filterDisabledDept(JSON.parse(JSON.stringify(this.deptOptions)));
       });
     },
     // 过滤禁用的部门
@@ -359,6 +359,32 @@ export default {
         }
         return true;
       });
+    },
+    // 处理部门选项，确保id是字符串类型
+    processDeptOptions(deptList) {
+      return deptList.map(dept => {
+        const newDept = { ...dept };
+        // 确保ID是字符串类型
+        if (newDept.id) newDept.id = String(newDept.id);
+        if (newDept.deptId) newDept.deptId = String(newDept.deptId);
+        
+        // 递归处理子部门
+        if (newDept.children && newDept.children.length) {
+          newDept.children = this.processDeptOptions(newDept.children);
+        }
+        return newDept;
+      });
+    },
+    // 转换部门数据结构，确保ID作为字符串处理，避免大数值精度丢失
+    normalizer(node) {
+      if (node.children && !node.children.length) {
+        delete node.children;
+      }
+      return {
+        id: String(node.id || node.deptId), // 将ID转为字符串类型
+        label: node.label || node.deptName,
+        children: node.children
+      };
     },
     // 筛选节点
     filterNode(value, data) {
@@ -453,6 +479,10 @@ export default {
       const userId = row.userId || this.ids;
       getUser(userId).then(response => {
         this.form = response.data;
+        // 确保deptId作为字符串处理，避免大数值精度丢失
+        if (this.form.deptId) {
+          this.form.deptId = String(this.form.deptId);
+        }
         this.postOptions = response.posts;
         this.roleOptions = response.roles;
         this.$set(this.form, "postIds", response.postIds);

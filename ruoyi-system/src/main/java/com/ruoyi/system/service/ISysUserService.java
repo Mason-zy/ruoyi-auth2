@@ -1,6 +1,7 @@
 package com.ruoyi.system.service;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.common.core.domain.entity.SysUser;
 
 /**
@@ -203,4 +204,12 @@ public interface ISysUserService
      * @return 结果
      */
     public String importUser(List<SysUser> userList, Boolean isUpdateSupport, String operName);
+
+    /**
+     * 同步BladeX用户数据到若依系统
+     * 
+     * @param bladeUserList BladeX用户数据列表
+     * @return 同步结果信息
+     */
+    public String syncBladeUser(List<Map<String, Object>> bladeUserList);
 }
