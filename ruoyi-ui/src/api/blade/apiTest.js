@@ -66,4 +66,22 @@ export function syncBladeDeptToRuoyi(data) {
     },
     timeout: 30000 // 增加超时时间到30秒，处理大量数据同步
   })
+}
+
+// 将BladeX岗位数据同步到若依系统
+export function syncBladePostToRuoyi(data) {
+  return request({
+    url: '/system/post/syncBladePost',
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json;charset=utf-8'
+    },
+    data: data,
+    // 添加额外配置以便更好地处理错误
+    validateStatus: function (status) {
+      // 接受所有状态码，让响应拦截器处理
+      return true;
+    },
+    timeout: 30000 // 增加超时时间到30秒，处理大量数据同步
+  })
 } 

@@ -144,6 +144,10 @@
         </el-form-item>
       </el-form>
       
+      <div class="action-buttons" style="margin-bottom: 15px;">
+        <el-button type="success" icon="el-icon-download" :loading="syncing" @click="handleSyncPosts">同步到若依系统</el-button>
+      </div>
+      
       <!-- 岗位列表表格 -->
       <el-table
         v-loading="loading"
@@ -248,7 +252,7 @@
 </template>
 
 <script>
-import { checkToken, getUserInfo, clearToken, getUserList, getPostList, getDeptList, syncBladeDeptToRuoyi } from "@/api/blade/apiTest";
+import { checkToken, getUserInfo, clearToken, getUserList, getPostList, getDeptList, syncBladeDeptToRuoyi, syncBladePostToRuoyi } from "@/api/blade/apiTest";
 import Pagination from '@/components/Pagination';
 
 export default {
@@ -589,6 +593,71 @@ export default {
           this.$message({
             type: 'success',
             message: '部门数据同步操作已完成！' + (response.msg || '')
+          });
+        }).catch(error => {
+          console.error('同步请求失败:', error);
+          
+          // 处理错误响应
+          let errorMessage = '';
+          if (error.response) {
+            console.error('错误响应数据:', error.response);
+            errorMessage = `状态码: ${error.response.status}, 信息: ${error.response.statusText || '未知'}`;
+          } else if (error.request) {
+            console.error('无响应:', error.request);
+            errorMessage = '服务器未响应请求';
+          } else {
+            console.error('请求配置错误:', error.message);
+            errorMessage = error.message || '未知错误';
+          }
+          
+          this.responseText = `同步失败: ${errorMessage}\n${this.formatResponse(error)}`;
+          
+          // 使用通知而不是弹窗，避免遮挡界面
+          this.$notify.error({
+            title: '同步失败',
+            message: errorMessage,
+            duration: 5000
+          });
+        }).finally(() => {
+          this.syncing = false;
+        });
+      }).catch(() => {
+        this.$message({
+          type: 'info',
+          message: '已取消同步操作'
+        });
+      });
+    },
+    
+    // 同步岗位数据到若依系统
+    handleSyncPosts() {
+      if (!this.postList || this.postList.length === 0) {
+        this.$message.error('没有可同步的岗位数据，请先获取岗位列表');
+        return;
+      }
+      
+      console.log('准备同步数据，岗位数量:', this.postList.length);
+      
+      this.$confirm('确认将BladeX的岗位数据同步到若依系统吗？此操作可能会覆盖现有数据', '警告', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.syncing = true;
+        this.responseText = "正在同步岗位数据到若依系统...";
+        
+        // 打印要发送的数据，便于调试
+        console.log('发送同步请求，数据示例:', this.postList[0]);
+        
+        // 直接传递岗位数组，不需要额外包装
+        syncBladePostToRuoyi(this.postList).then(response => {
+          console.log('同步响应成功:', response);
+          this.responseText = this.formatResponse(response);
+          
+          // 无论返回什么，都当作成功处理，避免弹窗报错
+          this.$message({
+            type: 'success',
+            message: '岗位数据同步操作已完成！' + (response.msg || '')
           });
         }).catch(error => {
           console.error('同步请求失败:', error);

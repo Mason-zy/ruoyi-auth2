@@ -1,10 +1,17 @@
 package com.ruoyi.system.service.impl;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.domain.SysPost;
 import com.ruoyi.system.mapper.SysPostMapper;
@@ -174,5 +181,131 @@ public class SysPostServiceImpl implements ISysPostService
     public int updatePost(SysPost post)
     {
         return postMapper.updatePost(post);
+    }
+
+    /**
+     * 同步BladeX岗位数据到若依系统
+     * 
+     * @param bladePostList BladeX岗位数据列表
+     * @return 同步结果信息
+     */
+    @Override
+    @Transactional
+    public String syncBladePost(List<Map<String, Object>> bladePostList)
+    {
+        if (bladePostList == null || bladePostList.isEmpty())
+        {
+            return "未接收到有效的岗位数据";
+        }
+        
+        int insertCount = 0;
+        int updateCount = 0;
+        
+        // 获取当前所有岗位ID和对应对象的映射
+        List<SysPost> existingPosts = postMapper.selectPostList(new SysPost());
+        Map<Long, SysPost> existingPostMap = existingPosts.stream()
+                .collect(Collectors.toMap(SysPost::getPostId, post -> post));
+        Map<String, SysPost> existingPostCodeMap = existingPosts.stream()
+                .collect(Collectors.toMap(SysPost::getPostCode, post -> post));
+        
+        // 开始同步岗位数据
+        for (Map<String, Object> bladePost : bladePostList)
+        {
+            try
+            {
+                // 解析BladeX岗位数据
+                String id = getStringValue(bladePost, "id");
+                String postCode = getStringValue(bladePost, "postCode");
+                String postName = getStringValue(bladePost, "postName");
+                
+                // 默认为正常状态
+                Integer status = 0;
+                Object statusObj = bladePost.get("status");
+                if (statusObj != null) {
+                    status = ((Number) statusObj).intValue();
+                    // 状态值转换：BladeX的1对应若依的0(正常)，BladeX的其他值对应若依的1(停用)
+                    status = (status == 1) ? 0 : 1;
+                }
+                
+                Integer sort = 0;
+                Object sortObj = bladePost.get("sort");
+                if (sortObj != null) {
+                    sort = ((Number) sortObj).intValue();
+                }
+                
+                // 处理category字段，放到remark中
+                String remark = "";
+                Object categoryObj = bladePost.get("category");
+                if (categoryObj != null) {
+                    Integer category = ((Number) categoryObj).intValue();
+                    // 映射category到可读的描述
+                    String categoryDesc = "未知";
+                    switch (category) {
+                        case 1: categoryDesc = "高层"; break;
+                        case 2: categoryDesc = "中层"; break;
+                        case 3: categoryDesc = "基层"; break;
+                        default: categoryDesc = "其他"; break;
+                    }
+                    remark = "岗位类型：" + categoryDesc;
+                }
+                
+                // 如果ID为空，则跳过
+                if (StringUtils.isEmpty(id))
+                {
+                    continue;
+                }
+                
+                Long postId = Long.parseLong(id);
+                
+                // 准备SysPost对象
+                SysPost sysPost = new SysPost();
+                sysPost.setPostId(postId);
+                sysPost.setPostCode(postCode);
+                sysPost.setPostName(postName);
+                sysPost.setStatus(status.toString());
+                sysPost.setPostSort(sort);
+                sysPost.setRemark(remark);
+                
+                // 检查岗位是否已存在
+                if (existingPostMap.containsKey(postId))
+                {
+                    // 岗位已存在，更新岗位信息
+                    sysPost.setUpdateBy(SecurityUtils.getUsername());
+                    postMapper.updatePost(sysPost);
+                    updateCount++;
+                }
+                else if (existingPostCodeMap.containsKey(postCode))
+                {
+                    // 岗位编码已存在，更新岗位信息（使用现有岗位ID）
+                    SysPost existingPost = existingPostCodeMap.get(postCode);
+                    sysPost.setPostId(existingPost.getPostId());
+                    sysPost.setUpdateBy(SecurityUtils.getUsername());
+                    postMapper.updatePost(sysPost);
+                    updateCount++;
+                }
+                else
+                {
+                    // 岗位不存在，新增岗位
+                    sysPost.setCreateBy(SecurityUtils.getUsername());
+                    postMapper.insertPost(sysPost);
+                    insertCount++;
+                }
+            }
+            catch (Exception e)
+            {
+                throw new ServiceException("同步岗位数据失败: " + e.getMessage());
+            }
+        }
+        
+        return String.format("同步完成，新增岗位: %d个，更新岗位: %d个", insertCount, updateCount);
+    }
+    
+    /**
+     * 从Map中获取字符串值，避免类型转换异常
+     */
+    private String getStringValue(Map<String, Object> map, String key)
+    {
+        Object value = map.get(key);
+        return value != null ? value.toString() : "";
     }
 }

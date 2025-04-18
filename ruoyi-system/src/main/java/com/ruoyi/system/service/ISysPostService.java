@@ -1,6 +1,7 @@
 package com.ruoyi.system.service;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.system.domain.SysPost;
 
 /**
@@ -96,4 +97,12 @@ public interface ISysPostService
      * @return 结果
      */
     public int updatePost(SysPost post);
+
+    /**
+     * 同步BladeX岗位数据到若依系统
+     * 
+     * @param bladePostList BladeX岗位数据列表
+     * @return 同步结果信息
+     */
+    public String syncBladePost(List<Map<String, Object>> bladePostList);
 }

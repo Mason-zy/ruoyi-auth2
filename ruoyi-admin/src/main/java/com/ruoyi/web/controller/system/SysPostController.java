@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.system;
 
 import java.util.List;
+import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -125,5 +126,16 @@ public class SysPostController extends BaseController
     {
         List<SysPost> posts = postService.selectPostAll();
         return success(posts);
+    }
+    
+    /**
+     * 同步BladeX岗位数据到若依系统
+     */
+    @PreAuthorize("@ss.hasPermi('system:post:edit')")
+    @Log(title = "岗位管理", businessType = BusinessType.OTHER)
+    @PostMapping("/syncBladePost")
+    public AjaxResult syncBladePost(@RequestBody List<Map<String, Object>> bladePostList)
+    {
+        return success(postService.syncBladePost(bladePostList));
     }
 }
