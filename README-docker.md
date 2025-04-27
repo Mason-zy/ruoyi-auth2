@@ -29,10 +29,10 @@
 chmod +x build-docker.sh
 
 # 执行构建脚本
-./build-docker.sh
+docker-compose build
 ```
 
-构建完成后，会生成一个tar格式的镜像包，用于分发。
+构建完成后，会生成4个镜像包。
 
 ### 2. 运行容器
 
@@ -42,15 +42,6 @@ chmod +x build-docker.sh
 docker-compose up -d
 ```
 
-如果使用分发的镜像包：
-
-```bash
-# 添加执行权限
-chmod +x run-docker.sh
-
-# 执行启动脚本，加载镜像包
-./run-docker.sh ruoyi-vue-docker-20240922.tar
-```
 
 ### 3. 访问系统
 
@@ -79,7 +70,11 @@ chmod +x run-docker.sh
 
 可以在docker-compose.yml中修改这些变量，或者在启动容器时通过-e参数指定。
 
-### 2. 持久化数据
+### 2. 关于数据库初始化
+
+系统使用自定义MySQL镜像，已将初始化SQL脚本(init.sql)打包到镜像中，因此无需单独提供初始化脚本，数据库将在首次启动时自动完成初始化。
+
+### 3. 持久化数据
 
 系统使用Docker卷保存数据，确保容器重启后数据不丢失：
 

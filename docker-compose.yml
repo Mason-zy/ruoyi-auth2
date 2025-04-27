@@ -17,7 +17,7 @@ services:
       - MYSQL_PORT=3306
       - MYSQL_DATABASE=ry-vue
       - MYSQL_USERNAME=root
-      - MYSQL_PASSWORD=ruoyi@123
+      - MYSQL_PASSWORD=123456
       # Druid连接池配置
       - SPRING_DATASOURCE_DRUID_INITIALSIZE=5
       - SPRING_DATASOURCE_DRUID_MINIDLE=10
@@ -61,20 +61,21 @@ services:
     networks:
       - ruoyi-net
 
-  # MySQL数据库
+  # MySQL数据库 - 使用自定义构建包含初始化脚本
   ruoyi-mysql:
-    image: mysql:8.0
+    build:
+      context: .
+      dockerfile: Dockerfile-mysql
     container_name: ruoyi-mysql
     restart: always
     ports:
       - "13306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=ruoyi@123
+      - MYSQL_ROOT_PASSWORD=123456
       - MYSQL_DATABASE=ry-vue
       - TZ=Asia/Shanghai
     volumes:
       - ruoyi-mysql-data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     networks:
       - ruoyi-net

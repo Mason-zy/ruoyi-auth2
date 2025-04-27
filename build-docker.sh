@@ -19,6 +19,12 @@ VUE_APP_BLADE_REDIRECT_URI = 'http://localhost/auth/blade-callback'
 EOF
 fi
 
+# 确保init.sql文件存在
+if [ ! -f init.sql ]; then
+  echo "错误: init.sql文件不存在，无法继续构建"
+  exit 1
+fi
+
 # 1. 构建镜像
 echo "===== 构建Docker镜像 ====="
 docker-compose build
@@ -42,7 +48,7 @@ echo "正在保存镜像..."
 docker save \
   ruoyi-vue_ruoyi-backend \
   ruoyi-vue_ruoyi-frontend \
-  mysql:5.7 \
+  ruoyi-vue_ruoyi-mysql \
   redis:6-alpine \
   -o ruoyi-vue-docker-${VERSION}.tar
 

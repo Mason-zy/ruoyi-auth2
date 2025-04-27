@@ -1,0 +1,62 @@
+version: '3'
+
+services:
+  # 后端服务
+  ruoyi-backend:
+    image: 192.168.100.10:5050/ruoyi-vue-ruoyi-backend:latest
+    container_name: ruoyi-backend
+    restart: always
+    ports:
+      - "8088:8088"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - MYSQL_HOST=ruoyi-mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=ry-vue
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=123456
+    volumes:
+      - ruoyi-uploads:/app/uploadPath
+      - ruoyi-logs:/app/logs
+    depends_on:
+      - ruoyi-mysql
+      - ruoyi-redis
+
+  # 前端服务
+  ruoyi-frontend:
+    image: 192.168.100.10:5050/ruoyi-vue-ruoyi-frontend:latest
+    container_name: ruoyi-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - ruoyi-backend
+
+  # MySQL数据库
+  ruoyi-mysql:
+    image: 192.168.100.10:5050/ruoyi-vue-ruoyi-mysql:latest
+    container_name: ruoyi-mysql
+    restart: always
+    ports:
+      - "13306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+      - MYSQL_DATABASE=ry-vue
+    volumes:
+      - ruoyi-mysql-data:/var/lib/mysql
+
+  # Redis缓存
+  ruoyi-redis:
+    image: 192.168.100.10:5050/ruoyi-vue-ruoyi-redis:6-alpine
+    container_name: ruoyi-redis
+    restart: always
+    ports:
+      - "16379:6379"
+    volumes:
+      - ruoyi-redis-data:/data
+
+volumes:
+  ruoyi-uploads:
+  ruoyi-logs:
+  ruoyi-mysql-data:
+  ruoyi-redis-data:
