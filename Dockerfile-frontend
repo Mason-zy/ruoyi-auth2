@@ -1,0 +1,36 @@
+FROM node:14 AS builder
+
+WORKDIR /app
+
+# 复制源代码
+COPY ruoyi-ui/package.json ./
+COPY ruoyi-ui/babel.config.js ./
+COPY ruoyi-ui/vue.config.js ./
+COPY ruoyi-ui/.env.production ./
+COPY ruoyi-ui/public ./public
+COPY ruoyi-ui/src ./src
+
+# 添加Blade相关环境变量
+ENV VUE_APP_BLADE_AUTH_SERVER=https://auth.we-safer.net
+ENV VUE_APP_BLADE_CALLBACK_URL=http://localhost/auth/blade-callback
+ENV VUE_APP_BLADE_TENANT_ID=454661
+ENV VUE_APP_BLADE_CLIENT_ID=chem_ruoyi
+
+# 安装依赖并构建
+RUN npm install && npm run build:prod
+
+# Nginx阶段
+FROM nginx:stable-alpine
+
+# 复制构建产物
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# 复制nginx配置
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"] 

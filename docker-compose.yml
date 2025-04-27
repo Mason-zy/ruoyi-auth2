@@ -1,0 +1,102 @@
+version: '3'
+
+services:
+  # 后端服务
+  ruoyi-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile-backend
+    container_name: ruoyi-backend
+    restart: always
+    ports:
+      - "8088:8088"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      # MySQL配置
+      - MYSQL_HOST=ruoyi-mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=ry-vue
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=ruoyi@123
+      # Druid连接池配置
+      - SPRING_DATASOURCE_DRUID_INITIALSIZE=5
+      - SPRING_DATASOURCE_DRUID_MINIDLE=10
+      - SPRING_DATASOURCE_DRUID_MAXACTIVE=20
+      - SPRING_DATASOURCE_DRUID_MAXWAIT=60000
+      # Redis配置
+      - REDIS_HOST=ruoyi-redis
+      - REDIS_PORT=6379
+      - REDIS_DATABASE=0
+      # 安全配置
+      - SPRING_SECURITY_CSRF_ENABLED=false
+      - TOKEN_SECRET=ruoyi-secret-key
+      - TOKEN_EXPIRE_TIME=30
+      # Blade相关配置
+      - BLADE_AUTH_URL=${BLADE_AUTH_URL:-https://auth.we-safer.net/oauth/token}
+      - BLADE_CLIENT_ID=${BLADE_CLIENT_ID:-chem_ruoyi}
+      - BLADE_CLIENT_SECRET=${BLADE_CLIENT_SECRET:-chem_ruoyi_secret}
+      - BLADE_REDIRECT_URI=${BLADE_REDIRECT_URI:-http://localhost/auth/blade-callback}
+      - BLADE_API_BASE_URL=${BLADE_API_BASE_URL:-https://we-safer.net/api}
+    volumes:
+      - ruoyi-uploads:/app/uploadPath
+      - ruoyi-logs:/app/logs
+      - ./application-prod.yml:/app/config/application-prod.yml
+    depends_on:
+      - ruoyi-mysql
+      - ruoyi-redis
+    networks:
+      - ruoyi-net
+
+  # 前端服务
+  ruoyi-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile-frontend
+    container_name: ruoyi-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - ruoyi-backend
+    networks:
+      - ruoyi-net
+
+  # MySQL数据库
+  ruoyi-mysql:
+    image: mysql:8.0
+    container_name: ruoyi-mysql
+    restart: always
+    ports:
+      - "13306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=ruoyi@123
+      - MYSQL_DATABASE=ry-vue
+      - TZ=Asia/Shanghai
+    volumes:
+      - ruoyi-mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - ruoyi-net
+
+  # Redis缓存
+  ruoyi-redis:
+    image: redis:6-alpine
+    container_name: ruoyi-redis
+    restart: always
+    ports:
+      - "16379:6379"
+    volumes:
+      - ruoyi-redis-data:/data
+    networks:
+      - ruoyi-net
+
+networks:
+  ruoyi-net:
+    driver: bridge
+
+volumes:
+  ruoyi-uploads:
+  ruoyi-logs:
+  ruoyi-mysql-data:
+  ruoyi-redis-data: 
