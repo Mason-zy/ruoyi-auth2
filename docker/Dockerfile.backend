@@ -1,0 +1,26 @@
+# 使用 Eclipse Temurin JRE Alpine 镜像（轻量级、推荐）
+FROM eclipse-temurin:17-jre-alpine
+
+# 设置作者信息 (可选)
+LABEL maintainer="Your Name <your.email@example.com>"
+
+# 安装常用字体库 (预防验证码等字体问题), CA 证书, 和 curl (用于健康检查)
+RUN apk add --no-cache fontconfig ttf-dejavu ca-certificates curl
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置 Spring Boot 应用环境变量 (可选, 可以在 docker-compose.yml 中覆盖)
+# ENV SERVER_PORT=8080
+
+# 定义 JAR 文件路径参数，方便构建时指定
+ARG JAR_FILE=ruoyi-admin/target/ruoyi-admin.jar
+
+# 将构建好的 JAR 文件复制到工作目录
+COPY ${JAR_FILE} app.jar
+
+# 暴露应用程序端口 (若依默认 8080)
+EXPOSE 8080
+
+# 容器启动时执行的命令
+ENTRYPOINT ["java", "-jar", "/app/app.jar"] 

@@ -1,0 +1,131 @@
+version: '3.8'
+
+# 读取 .env 文件中的环境变量
+# env_file:
+#   - .env
+# 注意: Docker Compose v2 及以上版本默认会自动加载同目录下的 .env 文件
+# 如果你的 Compose 版本较低或遇到问题，可以取消上面两行的注释
+
+services:
+  mysql:
+    
+    #image: ${DOCKER_REGISTRY:-192.168.100.10:5050}/mysql:${MYSQL_VERSION:-8.0} # 使用 .env 中的版本, 默认为 8.0
+    image: mysql:${MYSQL_VERSION:-8.0}
+    container_name: ${COMPOSE_PROJECT_NAME:-ruoyi}-mysql
+    ports:
+      - "${MYSQL_PORT:-3306}:3306" # 映射端口，方便外部工具连接 (可选)
+    volumes:
+      - mysql_data:/var/lib/mysql # 使用命名卷 mysql_data 进行数据持久化
+      # 假设初始化脚本 init.sql 在 docker-compose.yml 同级目录下
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # 映射数据库初始化脚本
+      # - ./mysql/conf/my.cnf:/etc/mysql/my.cnf # 挂载自定义配置 (可选)
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD} # 设置 root 密码
+      MYSQL_DATABASE: ${MYSQL_DATABASE} # 创建若依数据库
+      MYSQL_USER: ${MYSQL_USER} # 创建若依用户
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD} # 设置若依用户密码
+    command: # 设置数据库编码、认证插件，并忽略表名大小写
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --lower_case_table_names=1
+    networks:
+      - app-network
+    healthcheck: # 容器健康检查
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u$${MYSQL_USER}", "-p$${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: always # 容器失败时总是重启
+
+  redis:
+    image: redis:${REDIS_VERSION:-6.2-alpine} # 使用 .env 中的版本, 默认为 6.2-alpine
+    # image: ${DOCKER_REGISTRY:-192.168.100.10:5050}/redis:${REDIS_VERSION:-6.2-alpine} # 使用 .env 中的版本, 默认为 6.2-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-ruoyi}-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379" # 映射端口 (可选)
+    volumes:
+      - redis_data:/data # 使用命名卷 redis_data 进行数据持久化
+      # - ./redis/conf/redis.conf:/usr/local/etc/redis/redis.conf # 挂载自定义配置 (可选)
+    networks:
+      - app-network
+    healthcheck: # 容器健康检查 (移除密码参数)
+      test: ["CMD", "redis-cli", "-h", "localhost", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s # 保留一个合理的宽限期
+    restart: always
+
+  backend:
+    # 使用 .env 中定义的完整镜像名称和标签
+    image: ${DOCKER_REGISTRY}/${COMPOSE_PROJECT_NAME:-ruoyi}-backend:${BACKEND_IMAGE_TAG:-latest}
+    container_name: ${COMPOSE_PROJECT_NAME:-ruoyi}-backend
+    # 如果需要直接映射后端端口 (不推荐，应通过 Nginx 访问)
+    # ports:
+    #   - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      # 通过环境变量覆盖 Spring Boot 配置
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_REDIS_HOST: ${SPRING_REDIS_HOST:-redis}
+      SPRING_REDIS_PORT: ${SPRING_REDIS_PORT:-6379}
+      # SPRING_REDIS_PASSWORD: ${SPRING_REDIS_PASSWORD} # 移除密码设置
+      # 添加 Druid 配置项 (使用 application-druid.yml 中的值作为默认参考)
+      SPRING_DATASOURCE_DRUID_INITIALSIZE: ${SPRING_DATASOURCE_DRUID_INITIALSIZE:-10} # 之前添加的，改为从env或默认10
+      SPRING_DATASOURCE_DRUID_MINIDLE: ${SPRING_DATASOURCE_DRUID_MINIDLE:-10}
+      SPRING_DATASOURCE_DRUID_MAXACTIVE: ${SPRING_DATASOURCE_DRUID_MAXACTIVE:-20}
+      SPRING_DATASOURCE_DRUID_MAXWAIT: ${SPRING_DATASOURCE_DRUID_MAXWAIT:-60000}
+      SPRING_DATASOURCE_DRUID_TIMEBETWEENEVICTIONRUNSMILLIS: ${SPRING_DATASOURCE_DRUID_TIMEBETWEENEVICTIONRUNSMILLIS:-60000}
+      SPRING_DATASOURCE_DRUID_MINEVICTABLEIDLETIMEMILLIS: ${SPRING_DATASOURCE_DRUID_MINEVICTABLEIDLETIMEMILLIS:-300000}
+      SPRING_DATASOURCE_DRUID_MAXEVICTABLEIDLETIMEMILLIS: ${SPRING_DATASOURCE_DRUID_MAXEVICTABLEIDLETIMEMILLIS:-900000}
+      SPRING_DATASOURCE_DRUID_VALIDATIONQUERY: ${SPRING_DATASOURCE_DRUID_VALIDATIONQUERY:-SELECT 1 FROM DUAL}
+      SPRING_DATASOURCE_DRUID_TESTWHILEIDLE: ${SPRING_DATASOURCE_DRUID_TESTWHILEIDLE:-true}
+      SPRING_DATASOURCE_DRUID_TESTONBORROW: ${SPRING_DATASOURCE_DRUID_TESTONBORROW:-false}
+      SPRING_DATASOURCE_DRUID_TESTONRETURN: ${SPRING_DATASOURCE_DRUID_TESTONRETURN:-false}
+      # 添加connectTimeout
+      SPRING_DATASOURCE_DRUID_CONNECTTIMEOUT: ${SPRING_DATASOURCE_DRUID_CONNECTTIMEOUT:-30000}
+      # 添加socketTimeout
+      SPRING_DATASOURCE_DRUID_SOCKETTIMEOUT: ${SPRING_DATASOURCE_DRUID_SOCKETTIMEOUT:-60000}
+      # 可以添加其他需要的环境变量
+      # JAVA_OPTS: "-Xms512m -Xmx1024m" # JVM 参数示例
+    depends_on: # 依赖于数据库和 Redis 先启动
+      mysql: # 等待 MySQL 健康检查通过
+        condition: service_healthy
+      redis: # 等待 Redis 健康检查通过
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck: # 容器健康检查 (假设有 actuator/health 端点)
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"] # 需要项目中引入 actuator
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s # 给 Spring Boot 足够的启动时间
+    restart: always
+
+  frontend:
+    # 使用 .env 中定义的完整镜像名称和标签
+    image: ${DOCKER_REGISTRY}/${COMPOSE_PROJECT_NAME:-ruoyi}-frontend:${FRONTEND_IMAGE_TAG:-latest}
+    container_name: ${COMPOSE_PROJECT_NAME:-ruoyi}-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80" # 映射 Nginx 的 80 端口到宿主机
+    depends_on: # 依赖于后端服务
+      - backend
+    networks:
+      - app-network
+    restart: always
+
+# 定义网络
+networks:
+  app-network:
+    driver: bridge # 使用默认的桥接网络驱动
+
+# 定义命名卷
+volumes:
+  mysql_data: {} # 定义 MySQL 数据卷
+  redis_data: {} # 定义 Redis 数据卷
+
