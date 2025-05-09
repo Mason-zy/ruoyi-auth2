@@ -138,7 +138,7 @@ blade:
     # 客户端密钥
     client-secret: chem_ruoyi_secret
     # 重定向URI
-    redirect-uri: http://localhost:81/auth/blade-callback
+    redirect-uri: http://localhost:3011/auth/blade-callback
   api:
     # BladeX API基础地址
     base-url: https://we-safer.net/api

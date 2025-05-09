@@ -67,6 +67,7 @@ function filterAsyncRouter(asyncRouterMap, lastRouter = false, type = false) {
       } else if (route.component === 'InnerLink') {
         route.component = InnerLink
       } else {
+        console.log('[filterAsyncRouter] Before calling loadView, route.component is:', route.component);
         route.component = loadView(route.component)
       }
     }

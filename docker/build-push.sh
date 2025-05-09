@@ -47,16 +47,16 @@ echo "  后端: $BACKEND_IMAGE_FULL_NAME"
 echo "  前端: $FRONTEND_IMAGE_FULL_NAME"
 
 # --- 构建前端 --- #
-echo "\n>>> 开始构建前端项目 (ruoyi-ui)..."
-cd "$PROJECT_ROOT/ruoyi-ui"
-if [ ! -d "node_modules" ]; then
-  echo "未找到 node_modules，执行 npm install..."
-  npm install
-fi
-echo "执行 npm run build:prod..."
-npm run build:prod
-echo "前端项目构建完成。"
-cd "$PROJECT_ROOT"
+# echo "\n>>> 开始构建前端项目 (ruoyi-ui)..."
+# cd "$PROJECT_ROOT/ruoyi-ui"
+# if [ ! -d "node_modules" ]; then
+#   echo "未找到 node_modules，执行 npm install..."
+#   npm install
+# fi
+# echo "执行 npm run build:prod..."
+# npm run build:prod
+# echo "前端项目构建完成。"
+# cd "$PROJECT_ROOT"
 
 # --- 构建后端 --- #
 echo "\n>>> 开始构建后端项目 (ruoyi-admin)..."
@@ -74,28 +74,31 @@ if [ ! -f "ruoyi-admin/target/ruoyi-admin.jar" ]; then
 fi
 echo "后端项目构建完成。"
 
-# --- 构建 Docker 镜像 --- #
+--- 构建 Docker 镜像 --- #
 echo "\n>>> 开始构建后端 Docker 镜像..."
 docker build -t "$BACKEND_IMAGE_FULL_NAME" -f "$DOCKER_DIR/Dockerfile.backend" "$PROJECT_ROOT"
 
-echo "\n>>> 开始构建前端 Docker 镜像..."
-docker build -t "$FRONTEND_IMAGE_FULL_NAME" -f "$DOCKER_DIR/Dockerfile.frontend" "$PROJECT_ROOT"
+# echo "\n>>> 开始构建前端 Docker 镜像..."
+# docker build -t "$FRONTEND_IMAGE_FULL_NAME" -f "$DOCKER_DIR/Dockerfile.frontend" "$PROJECT_ROOT"
+
 
 echo "Docker 镜像构建完成。"
+
 
 # --- 推送 Docker 镜像 --- #
 echo "\n>>> 开始推送后端镜像 $BACKEND_IMAGE_FULL_NAME ..."
 docker push "$BACKEND_IMAGE_FULL_NAME"
 
 
-
-echo "\n>>> 开始推送前端镜像 $FRONTEND_IMAGE_FULL_NAME ..."
-docker push "$FRONTEND_IMAGE_FULL_NAME"
+# echo "\n>>> 开始推送前端镜像 $FRONTEND_IMAGE_FULL_NAME ..."
+# docker push "$FRONTEND_IMAGE_FULL_NAME"
 
 echo "\n>>> 镜像推送完成!"
+
+
 echo "后端镜像: $BACKEND_IMAGE_FULL_NAME"
-echo "前端镜像: $FRONTEND_IMAGE_FULL_NAME"
+# echo "前端镜像: $FRONTEND_IMAGE_FULL_NAME"
 
 # (脚本末尾可以加一个简单的 echo 确认结束)
 echo "\n脚本执行完毕。" 
-sleep 5
+sleep 20
